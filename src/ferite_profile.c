@@ -39,18 +39,9 @@ static void *xmalloc(size_t bytes)
 }
 
 static char *hash_get_key(char *filename, unsigned int line, char *funcname) {
-	size_t len = strlen(filename) + strlen(funcname);
-	char *key;
-
-	while (line != 0) {
-		line /= 10;
-		len++;
-	}
-	len += 3; // filename|line|funcname\0
-		//           ^    ^        ^
-
-	key = xmalloc(len);
-	snprintf(key, len, "%s|%d|%s", filename, line, funcname);
+	size_t len = strlen(funcname);
+	char *key = xmalloc(len + 1);
+	strcpy(key, funcname);
 	return key;
 }
 
@@ -66,6 +57,7 @@ static struct ferite_profile_function_call *ferite_profile_function_call_init(ch
 	fc->total_duration.tv_nsec = 0;
 	fc->line = line;
 	fc->head = fc->curr = fc->tail = fc->timings = NULL;
+	fc->next = NULL;
 }
 
 static int is_profile_for(char *filename, int line, char *funcname, struct ferite_profile_function_call *fc)
@@ -73,9 +65,7 @@ static int is_profile_for(char *filename, int line, char *funcname, struct ferit
 	// FIXME: The following code do not differentiate these two functions:
 	//
 	//	func foo return 1; func foo(number i) return 2;
-	return fc->line == line &&
-	       strcmp(fc->filename, filename) == 0 &&
-	       strcmp(fc->function_name, funcname) == 0;
+	return strcmp(fc->function_name, funcname) == 0;
 }
 
 static struct ferite_profile_function_call *hash_get_or_create(char *filename, int line, char *funcname)
@@ -98,14 +88,16 @@ static struct ferite_profile_function_call *hash_get_or_create(char *filename, i
 		}
 	}
 
-	tail = ferite_profile_function_call_init(filename, line, funcname);
+	tail->next = ferite_profile_function_call_init(filename, line, funcname);
 
 	return tail;
 }
 
 void ferite_trace_init()
 {
+	int i;
 	fprintf(stderr, "ohai ferite_init\n");
+	bzero(ferite_profile_function_calls, sizeof(struct ferite_profile_function_call *) * FERITE_PROFILE_NHASH);
 }
 
 static void save_trace_data()
@@ -147,15 +139,21 @@ void ferite_trace_function_exit(int level, char *file, unsigned int line, char *
 {
 	struct ferite_profile_function_call *fc = hash_get_or_create(file, line, name);
 
-	if (fc->timings == NULL)
+	if (fc->timings == NULL) {
+		fprintf(stderr, "%s:%d %s\n", file, line, name);
 		DIE("Shouldn't happen!");
+	}
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &fc->curr->end);
 	fc->total_duration.tv_nsec += fc->curr->end.tv_nsec;
 	fc->total_duration.tv_sec += fc->total_duration.tv_nsec / 1000000000;
 	fc->total_duration.tv_nsec = fc->total_duration.tv_nsec % 1000000000;
 
+	fprintf(stderr, "Total duration for %s = %d.%ld\n", name, fc->total_duration.tv_sec, fc->total_duration.tv_nsec);
 	fc->curr = fc->tail = fc->curr->prev;
+	if (fc->curr == NULL) {
+		fc->curr = fc->tail = fc->head;
+	}
 
 	function_exit_counter++;
 

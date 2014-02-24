@@ -197,6 +197,7 @@ FERITE_API int ferite_get_required_parameter_list_size( FeriteScript *script, Fe
 #include <ferite/ferror.h>
 #include <ferite/farray.h>
 #include <ferite/fbuffer.h>
+#include <ferite/fprofile.h>
 
 #include <ferite/fobj.h> /* As this is the native class 'Obj' we need the macros here for compilation!*/    
 

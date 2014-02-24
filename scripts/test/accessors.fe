@@ -1,0 +1,42 @@
+uses "console";
+
+class SuperClass
+{
+   protected number isprotected = 1;
+   private number isprivate = 3;
+   public number ispublic = 2;
+   
+   protected function printPrivate()
+   {
+       Console.println( ".isprivate = ${.isprivate}" );
+   }
+}
+
+class SubClass extends SuperClass
+{
+   protected number isprotected = 666;
+   
+   function constructor()
+   {
+       super();
+      
+       .isprotected = 777;
+       super.isprotected = 2;
+       
+       Console.println( ".isprotected == ${.isprotected}" );
+       Console.println( "super.isprotected == ${super.isprotected}" );
+   }
+   
+   function printPrivate()
+   {
+       super.printPrivate();
+   }
+   
+}
+
+object o = new SuperClass();
+object p = new SubClass();
+
+//o.isprivate = 2;
+//o.printPrivate();
+p.printPrivate();

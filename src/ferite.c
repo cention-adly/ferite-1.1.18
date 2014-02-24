@@ -71,6 +71,7 @@ int ferite_init( int argc, char **argv )
 	int i = 0;
 	int wantDebugBanner = FE_TRUE;
 	
+	fprintf(stderr, "ohai ferite_init\n");
 	FE_ENTER_FUNCTION;
 
 	if( !ferite_is_initialised )
@@ -224,6 +225,8 @@ int ferite_deinit()
 		ferite_is_initialised = 0;
 	}
 	FE_LEAVE_FUNCTION( !ferite_is_initialised );
+	fprintf(stderr, "ohai ferite_deinit\n");
+	ferite_trace_record();
 }
 
 /**

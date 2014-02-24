@@ -37,7 +37,10 @@
 #  endif
 /* provides slower but more secure memory tracking */
 #  define FERITE_MEM_DEBUG
-#  define FUD( var ) if( ferite_show_debug == 1 ) printf var ;
+#  define FUD( var ) if( 0 ) printf var ;
+# define FUDD_IN(level, file, line, name) ferite_trace_function_entry(level, file, line, name)
+# define FUDD_OUT(level, file, line, name) ferite_trace_function_exit(level, file, line, name)
+#  define FUDD( var ) fprintf var ;
 #  define FE_ENTER_FUNCTION \
     int ferite_depth = ferite_call_level; \
     FUD(("|%s--> %s [line %d] Entering %s()\n", ferite_stroflen(' ', (ferite_call_level*2)), __FILE__, __LINE__, __FUNCTION__)); \
@@ -45,19 +48,19 @@
 
 #  define FE_ENTER_NAMED_FUNCTION( NAME ) \
     int ferite_depth = ferite_call_level; \
-    FUD(("|%s--> %s [line %d] Entering %s()\n", ferite_stroflen(' ', (ferite_call_level*2)), __FILE__, __LINE__, NAME)); \
+    FUDD_IN(ferite_call_level, __FILE__, __LINE__, NAME); \
     ferite_call_level++;
 
 #  define FE_LEAVE_FUNCTION( blim ) { ferite_call_level--; \
     FUD(("|%s<-- %s [line %d] Leaving  %s()\n", ferite_stroflen(' ', (ferite_call_level*2)), __FILE__, __LINE__, __FUNCTION__)); \
     if( ferite_call_level != ferite_depth ) { \
-        FUD(( "Depth Error: (file %s, line %d, function %s, depth=%d, expected %d)\n", __FILE__, __LINE__, __FUNCTION__, ferite_call_level, ferite_depth ));  } \
+        FUDD((stderr,  "Depth Error: (file %s, line %d, function %s, depth=%d, expected %d)\n", __FILE__, __LINE__, __FUNCTION__, ferite_call_level, ferite_depth ));  } \
     return blim; }
 
 #  define FE_LEAVE_NAMED_FUNCTION( NAME ) { ferite_call_level--; \
-    FUD(("|%s<-- %s [line %d] Leaving  %s()\n", ferite_stroflen(' ', (ferite_call_level*2)), __FILE__, __LINE__, NAME)); \
+    FUDD_OUT(ferite_call_level, __FILE__, __LINE__, NAME); \
     if( ferite_call_level != ferite_depth ) { \
-        FUD(( "Depth Error: (file %s, line %d, function %s, depth=%d, expected %d)\n", __FILE__, __LINE__, NAME, ferite_call_level, ferite_depth )); } }
+        FUDD((stderr,  "Depth Error: (file %s, line %d, function %s, depth=%d, expected %d)\n", __FILE__, __LINE__, NAME, ferite_call_level, ferite_depth )); } }
 
 # else
 #  define FUD( var )
@@ -65,6 +68,8 @@
 #  define FE_LEAVE_NAMED_FUNCTION( NAME )
 #  define FE_ENTER_FUNCTION
 #  define FE_LEAVE_FUNCTION( blim ) return blim;
+#  define FUDD_IN(level, file, line, name)
+#  define FUDD_OUT(level, file, line, name)
 # endif
 
 # define NOWT

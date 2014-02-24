@@ -31,6 +31,7 @@ ferite_gc_generation.c \
       ferite_execute.c \
       ferite_scanner.c \
       ferite_globals.c \
+      ferite_profile.c \
        ferite_script.c \
        ferite_parser.c \
        ferite_opcode.c \

@@ -22,5 +22,4 @@ void ferite_trace_init();
 void ferite_trace_function_entry(int level, char *file, unsigned int line, char *name);
 void ferite_trace_function_entry(int level, char *file, unsigned int line, char *name);
 void ferite_trace_function_exit(int level, char *file, unsigned int line, char *name);
-void ferite_trace_record();
 #endif

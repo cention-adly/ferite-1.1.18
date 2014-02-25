@@ -195,8 +195,3 @@ void ferite_profile_save()
 	if (fclose(f) == EOF)
 		perror(filename);
 }
-
-void ferite_trace_record()
-{
-	fprintf(stderr, "TODO record trace data\n");
-}

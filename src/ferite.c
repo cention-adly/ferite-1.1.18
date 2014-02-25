@@ -226,8 +226,6 @@ int ferite_deinit()
 		ferite_is_initialised = 0;
 	}
 	FE_LEAVE_FUNCTION( !ferite_is_initialised );
-	fprintf(stderr, "ohai ferite_deinit\n");
-	ferite_trace_record();
 }
 
 /**

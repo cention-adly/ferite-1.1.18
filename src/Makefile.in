@@ -84,7 +84,7 @@ am_libferite_la_OBJECTS = ferite_gc_generation.lo ferite_gc_libgc.lo \
 	ferite_error.lo ferite_utils.lo ferite_stack.lo \
 	ferite_regex.lo ferite_class.lo ferite_hash.lo ferite_obj.lo \
 	ferite_ops.lo ferite_amt.lo ferite_amtarray.lo ferite_cache.lo \
-	ferite_gc.lo ferite.lo
+	ferite_profile.lo ferite_gc.lo ferite.lo
 libferite_la_OBJECTS = $(am_libferite_la_OBJECTS)
 libferite_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \

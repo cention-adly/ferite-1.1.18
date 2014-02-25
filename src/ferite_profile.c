@@ -1,17 +1,18 @@
 #ifdef HAVE_CONFIG_HEADER
 #include "../config.h"
 #endif
-
 #include <stdio.h>
-
 #include "ferite.h"
+
+#define DIE(reason) do { fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, reason); exit(1); } while(0)
 #define ONE_BILLION 1000000000L
 
-static unsigned int save_to_file_threshold = 100;
+int ferite_profile_enabled = FE_FALSE;
 
 #define FERITE_PROFILE_NHASH 8192
 #define FERITE_PROFILE_STACK_SIZE 20
 static struct profile_entry *profile_entries[FERITE_PROFILE_NHASH] = { NULL };
+static char *profile_output = "ferite.profile";
 
 static unsigned int hash(char *key)
 {
@@ -29,30 +30,36 @@ static struct profile_entry *hash_lookup(char *key) {
 	return profile_entries[idx];
 }
 
-#define DIE(reason) do { fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, reason); exit(1); } while(0)
+//static void *xmalloc(size_t bytes)
+//{
+//	void *buf = fmalloc_ngc(bytes);
+//	if (buf == NULL)
+//		DIE("OOM");
+//	return buf;
+//}
 
-static void *xmalloc(size_t bytes)
+static int number_width(unsigned int num)
 {
-	void *buf = malloc(bytes);
-	if (buf == NULL)
-		DIE("OOM");
-	return buf;
+	unsigned int width = 0;
+
+	do {
+		width += 1;
+		num /= 10;
+	} while (num > 0);
+
+	return width;
 }
 
-static char *hash_get_key(char *filename, unsigned int lnum) {
+static char *hash_get_key(char *filename, unsigned int lnum)
+{
 	size_t len = strlen(filename);
-	int l = lnum;
 	char *key;
 	int ntruncated = 0;
 
-	// calculate width of line number
-	do {
-		len += 1;
-		l /= 10;
-	} while(l > 0);
+	len += number_width(lnum);
 	len += 2; // filename:lnum\0
 		  //         ^     ^
-	key = xmalloc(len);
+	key = fmalloc_ngc(len);
 	if ((ntruncated = snprintf(key, len, "%s:%d", filename, lnum)) >= len) {
 		fprintf(stderr, "FIXME: %d bytes for key '%s' truncated for %s:%d\n", ntruncated, key, filename, lnum);
 	}
@@ -63,7 +70,7 @@ static struct profile_entry *ferite_profile_init(char *filename, int line)
 {
 	struct profile_entry *pe;
 
-	pe = xmalloc(sizeof(struct profile_entry));
+	pe = fmalloc_ngc(sizeof(struct profile_entry));
 	pe->filename = ferite_strdup(filename, __FILE__, __LINE__);
 	pe->ncalls = 0;
 	pe->total_duration.tv_sec = 0;
@@ -104,16 +111,14 @@ static struct profile_entry *hash_get_or_create(char *filename, int line)
 	return tail;
 }
 
-void ferite_trace_init()
+int ferite_profile_toggle(int state)
 {
-	int i;
-	//fprintf(stderr, "ohai ferite_init\n");
-	//bzero(profile_entries, sizeof(struct profile_entry *) * FERITE_PROFILE_NHASH);
+	return ferite_profile_enabled = state;
 }
 
 static struct timespec *create_timestamp()
 {
-	struct timespec *t = xmalloc(sizeof(struct timespec));
+	struct timespec *t = fmalloc_ngc(sizeof(struct timespec));
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, t);
 	return t;
@@ -162,18 +167,17 @@ void ferite_profile_end(FeriteScript *script)
 	timespec_add(&pe->total_duration, duration);
 
 	//fprintf(stderr, "Total duration for %s:%d = %ld.%ld\n", pe->filename, pe->line, pe->total_duration.tv_sec, pe->total_duration.tv_nsec);
-	free(start);
+	ffree_ngc(start);
 }
 
 void ferite_profile_save()
 {
 	int i;
 	FILE *f;
-	char *filename = "ferite.profile";
 
-	f = fopen(filename, "w");
+	f = fopen(profile_output, "w");
 	if (f == NULL) {
-		perror(filename);
+		perror(profile_output);
 		return;
 	}
 
@@ -188,5 +192,16 @@ void ferite_profile_save()
 	}
 
 	if (fclose(f) == EOF)
-		perror(filename);
+		perror(profile_output);
+}
+
+void ferite_profile_output(char *filename) {
+	int pid = getpid();
+	int len = strlen(filename) + number_width(pid) + 2;
+
+	profile_output = malloc(len);
+	if (profile_output == NULL) {
+		DIE("OOM");
+	}
+	snprintf(profile_output, len, "%s.%d", filename, pid);
 }

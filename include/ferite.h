@@ -64,6 +64,7 @@ FERITE_API FeriteScript *ferite_new_script();
 FERITE_API int           ferite_script_load( FeriteScript *script, char *filename );
 FERITE_API int           ferite_script_load_from_stream( FeriteScript *script, FILE *file );
 FERITE_API int           ferite_cache_toggle( int state );
+FERITE_API int           ferite_profile_toggle( int state );
 FERITE_API FeriteScript *ferite_script_compile( char *filename );
 FERITE_API FeriteScript *ferite_script_compile_with_path( char *filename, char **paths );
 FERITE_API int           ferite_script_execute( FeriteScript *script );

@@ -2,15 +2,16 @@
 #include "../config.h"
 #endif
 
-#include "ferite.h"
-
 #include <stdio.h>
-static unsigned int function_entry_counter = 0;
-static unsigned int function_exit_counter = 0;
+
+#include "ferite.h"
+#define ONE_BILLION 1000000000L
+
 static unsigned int save_to_file_threshold = 100;
 
 #define FERITE_PROFILE_NHASH 8192
-struct ferite_profile_function_call *ferite_profile_function_calls[FERITE_PROFILE_NHASH];
+#define FERITE_PROFILE_STACK_SIZE 20
+static struct profile_entry *profile_entries[FERITE_PROFILE_NHASH];
 
 static unsigned int hash(char *key)
 {
@@ -23,9 +24,9 @@ static unsigned int hash(char *key)
 	return hash % FERITE_PROFILE_NHASH;
 }
 
-static struct ferite_profile_function_call *hash_lookup(char *key) {
+static struct profile_entry *hash_lookup(char *key) {
 	unsigned int idx = hash(key);
-	return ferite_profile_function_calls[idx];
+	return profile_entries[idx];
 }
 
 #define DIE(reason) do { fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, reason); exit(1); } while(0)
@@ -38,57 +39,67 @@ static void *xmalloc(size_t bytes)
 	return buf;
 }
 
-static char *hash_get_key(char *filename, unsigned int line, char *funcname) {
-	size_t len = strlen(funcname);
-	char *key = xmalloc(len + 1);
-	strcpy(key, funcname);
+static char *hash_get_key(char *filename, unsigned int lnum) {
+	size_t len = strlen(filename);
+	int l = lnum;
+	char *key;
+	int ntruncated = 0;
+
+	// calculate width of line number
+	do {
+		len += 1;
+		l /= 10;
+	} while(l > 0);
+	len += 2; // filename:lnum\0
+		  //         ^     ^
+	key = xmalloc(len);
+	if ((ntruncated = snprintf(key, len, "%s:%d", filename, lnum)) >= len) {
+		fprintf(stderr, "FIXME: %d bytes for key '%s' truncated for %s:%d\n", ntruncated, key, filename, lnum);
+	}
 	return key;
 }
 
-static struct ferite_profile_function_call *ferite_profile_function_call_init(char *filename, int line, char *funcname)
+static struct profile_entry *ferite_profile_init(char *filename, int line)
 {
-	struct ferite_profile_function_call *fc;
+	struct profile_entry *pe;
 
-	fc = xmalloc(sizeof(struct ferite_profile_function_call));
-	fc->filename = ferite_strdup(filename, __FILE__, __LINE__);
-	fc->function_name = ferite_strdup(funcname, __FILE__, __LINE__);
-	fc->ncalls = 0;
-	fc->total_duration.tv_sec = 0;
-	fc->total_duration.tv_nsec = 0;
-	fc->line = line;
-	fc->head = fc->curr = fc->tail = fc->timings = NULL;
-	fc->next = NULL;
+	pe = xmalloc(sizeof(struct profile_entry));
+	pe->filename = ferite_strdup(filename, __FILE__, __LINE__);
+	pe->ncalls = 0;
+	pe->total_duration.tv_sec = 0;
+	pe->total_duration.tv_nsec = 0;
+	pe->line = line;
+	pe->stack = ferite_create_stack(NULL, FERITE_PROFILE_STACK_SIZE);
+
+	pe->next = NULL;
 }
 
-static int is_profile_for(char *filename, int line, char *funcname, struct ferite_profile_function_call *fc)
+static int is_profile_for(char *filename, int line, struct profile_entry *pe)
 {
-	// FIXME: The following code do not differentiate these two functions:
-	//
-	//	func foo return 1; func foo(number i) return 2;
-	return strcmp(fc->function_name, funcname) == 0;
+	return strcmp(pe->filename, filename) == 0 && pe->line == line;
 }
 
-static struct ferite_profile_function_call *hash_get_or_create(char *filename, int line, char *funcname)
+static struct profile_entry *hash_get_or_create(char *filename, int line)
 {
-	struct ferite_profile_function_call *p = NULL, *tail;
-	char *key = hash_get_key(filename, line, funcname);
+	struct profile_entry *p = NULL;
+	char *key = hash_get_key(filename, line);
 	unsigned int idx = hash(key);
-	struct ferite_profile_function_call *fc = ferite_profile_function_calls[idx];
+	struct profile_entry *pe = profile_entries[idx], *tail;
 
-	if (fc == NULL) {
-		ferite_profile_function_calls[idx] = ferite_profile_function_call_init(filename, line, funcname);
-		return ferite_profile_function_calls[idx];
+	if (pe == NULL) {
+		profile_entries[idx] = ferite_profile_init(filename, line);
+		return profile_entries[idx];
 	} else {
-		p = fc;
+		p = pe;
 		while (p) {
-			if (is_profile_for(filename, line, funcname, fc))
-				return fc;
+			if (is_profile_for(filename, line, pe))
+				return pe;
 			tail = p;
 			p = p->next;
 		}
 	}
 
-	tail->next = ferite_profile_function_call_init(filename, line, funcname);
+	tail->next = ferite_profile_init(filename, line);
 
 	return tail;
 }
@@ -97,72 +108,95 @@ void ferite_trace_init()
 {
 	int i;
 	fprintf(stderr, "ohai ferite_init\n");
-	bzero(ferite_profile_function_calls, sizeof(struct ferite_profile_function_call *) * FERITE_PROFILE_NHASH);
+	bzero(profile_entries, sizeof(struct profile_entry *) * FERITE_PROFILE_NHASH);
 }
 
 static void save_trace_data()
 {
-	int i;
-
 	ferite_trace_record();
 }
 
-static struct ferite_profile_timings *ferite_profile_timings_create()
+static struct timespec *create_timestamp()
 {
-	struct ferite_profile_timings *t = xmalloc(sizeof(struct ferite_profile_timings));
-	t->next = t->prev = NULL;
-	bzero(&t->end, sizeof(struct timespec));
+	struct timespec *t = xmalloc(sizeof(struct timespec));
+
+	clock_gettime(CLOCK_MONOTONIC_RAW, t);
 	return t;
 }
 
-void ferite_trace_function_entry(int level, char *file, unsigned int line, char *name)
+static struct timespec timespec_diff(struct timespec *old, struct timespec *new)
 {
-	struct ferite_profile_function_call *fc = hash_get_or_create(file, line, name);
-
-	if (fc->timings == NULL) {
-		fc->head = fc->curr = fc->tail = fc->timings = ferite_profile_timings_create();
-	} else {
-		if (fc->curr->next == NULL) {
-			fc->curr->next = ferite_profile_timings_create();
-			fc->curr->next->prev = fc->curr;
-		}
-		fc->curr = fc->tail = fc->curr->next;
+	struct timespec d;
+	if (new->tv_nsec < old->tv_nsec) {
+		new->tv_sec -= 1;
+		new->tv_nsec += ONE_BILLION;
 	}
-
-	clock_gettime(CLOCK_MONOTONIC_RAW, &fc->curr->begin);
-	fc->ncalls++;
-
-	function_entry_counter++;
+	d.tv_nsec = new->tv_nsec - old->tv_nsec;
+	d.tv_sec = new->tv_sec - old->tv_sec;
+	return d;
 }
 
-void ferite_trace_function_exit(int level, char *file, unsigned int line, char *name)
+static void timespec_add(struct timespec *t, struct timespec delta)
 {
-	struct ferite_profile_function_call *fc = hash_get_or_create(file, line, name);
+	t->tv_nsec += delta.tv_nsec;
+	if (t->tv_nsec > ONE_BILLION) {
+		t->tv_nsec %= ONE_BILLION;
+		t->tv_sec += 1;
+	}
+	t->tv_sec += delta.tv_sec;
+}
 
-	if (fc->timings == NULL) {
-		fprintf(stderr, "%s:%d %s\n", file, line, name);
-		DIE("Shouldn't happen!");
+void ferite_profile_begin(FeriteScript *script)
+{
+	struct profile_entry *pe = hash_get_or_create(script->current_op_file, script->current_op_line);
+	//fprintf(stderr, ">>> %s:%d\n", script->current_op_file, script->current_op_line);
+
+	ferite_stack_push(NULL, pe->stack, create_timestamp());
+	pe->ncalls++;
+}
+
+void ferite_profile_end(FeriteScript *script)
+{
+	struct profile_entry *pe = hash_get_or_create(script->current_op_file, script->current_op_line);
+	struct timespec end, *start, duration;
+	//fprintf(stderr, "<<< %s:%d\n", script->current_op_file, script->current_op_line);
+
+	clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+	start = ferite_stack_pop(NULL, pe->stack);
+	duration = timespec_diff(start, &end);
+	timespec_add(&pe->total_duration, duration);
+
+	//fprintf(stderr, "Total duration for %s:%d = %ld.%ld\n", pe->filename, pe->line, pe->total_duration.tv_sec, pe->total_duration.tv_nsec);
+	free(start);
+}
+
+void ferite_profile_save()
+{
+	int i;
+	FILE *f;
+	char *filename = "ferite.profile";
+
+	f = fopen(filename, "w");
+	if (f == NULL) {
+		perror(filename);
+		return;
 	}
 
-	clock_gettime(CLOCK_MONOTONIC_RAW, &fc->curr->end);
-	fc->total_duration.tv_nsec += fc->curr->end.tv_nsec;
-	fc->total_duration.tv_sec += fc->total_duration.tv_nsec / 1000000000;
-	fc->total_duration.tv_nsec = fc->total_duration.tv_nsec % 1000000000;
-
-	fprintf(stderr, "Total duration for %s = %d.%ld\n", name, fc->total_duration.tv_sec, fc->total_duration.tv_nsec);
-	fc->curr = fc->tail = fc->curr->prev;
-	if (fc->curr == NULL) {
-		fc->curr = fc->tail = fc->head;
+	for (i = 0; i < FERITE_PROFILE_NHASH; i++) {
+		struct profile_entry *pe = profile_entries[i];
+		if (pe == NULL)
+			continue;
+		do {
+			fprintf(f, "%s:%d %d %ld.%ld\n", pe->filename, pe->line, pe->ncalls, pe->total_duration.tv_sec, pe->total_duration.tv_nsec);
+			pe = pe->next;
+		} while (pe);
 	}
 
-	function_exit_counter++;
-
-	if (function_exit_counter % save_to_file_threshold == 0) {
-		save_trace_data();
-	}
+	if (fclose(f) == EOF)
+		perror(filename);
 }
 
 void ferite_trace_record()
 {
-	fprintf(stderr, "Total function_entry_counter: %d, exit: %d\n", function_entry_counter, function_exit_counter);
+	fprintf(stderr, "TODO record trace data\n");
 }

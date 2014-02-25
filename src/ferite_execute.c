@@ -102,6 +102,7 @@ int ferite_script_execute( FeriteScript *script )
 			ferite_thread_group_wait( script, script->thread_group );
 #endif
 		
+			FERITE_PROFILE_SAVE();
 			/* clean up the system */
 			if( rval != NULL )
 			{
@@ -1395,6 +1396,8 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 		script->current_op_line = current_op->line;
 		exec->block_depth = current_op->block_depth;
 
+		FERITE_PROFILE_BEGIN(script);
+
 		if( ferite_opcode_table[current_op->OP_TYPE].op != NULL )
 			return_val = CALL_INLINE_OP((ferite_opcode_table[current_op->OP_TYPE].op));
 		else 
@@ -1465,6 +1468,8 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 				ferite_reset_errors( script );
 			}
 		}
+
+		FERITE_PROFILE_END(script);
 		
 		if( !context->keep_function_running || !script->keep_execution )
 			break;

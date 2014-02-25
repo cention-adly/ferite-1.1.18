@@ -3,25 +3,19 @@
 
 #include "time.h"
 
-struct ferite_profile_timings {
-	struct ferite_profile_timings *next, *prev;
-	struct timespec begin;
-	struct timespec end;
-};
+#define FERITE_PROFILE_BEGIN(script) ferite_profile_begin(script)
+#define FERITE_PROFILE_END(script) ferite_profile_end(script)
+#define FERITE_PROFILE_SAVE() ferite_profile_save(script)
 
-struct ferite_profile_function_call {
+struct profile_entry {
 	char *filename;
 	int line;
-	char *function_name;
 	unsigned int ncalls;
 	struct timespec total_duration;
 
-	struct ferite_profile_timings *head;
-	struct ferite_profile_timings *curr;
-	struct ferite_profile_timings *tail;
-	struct ferite_profile_timings *timings;
+	FeriteStack *stack;
 
-	struct ferite_profile_function_call *next; // next in hash table
+	struct profile_entry *next; // next in hash table
 };
 
 void ferite_trace_init();

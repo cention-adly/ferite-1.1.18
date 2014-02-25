@@ -11,7 +11,7 @@ static unsigned int save_to_file_threshold = 100;
 
 #define FERITE_PROFILE_NHASH 8192
 #define FERITE_PROFILE_STACK_SIZE 20
-static struct profile_entry *profile_entries[FERITE_PROFILE_NHASH];
+static struct profile_entry *profile_entries[FERITE_PROFILE_NHASH] = { NULL };
 
 static unsigned int hash(char *key)
 {
@@ -107,13 +107,8 @@ static struct profile_entry *hash_get_or_create(char *filename, int line)
 void ferite_trace_init()
 {
 	int i;
-	fprintf(stderr, "ohai ferite_init\n");
-	bzero(profile_entries, sizeof(struct profile_entry *) * FERITE_PROFILE_NHASH);
-}
-
-static void save_trace_data()
-{
-	ferite_trace_record();
+	//fprintf(stderr, "ohai ferite_init\n");
+	//bzero(profile_entries, sizeof(struct profile_entry *) * FERITE_PROFILE_NHASH);
 }
 
 static struct timespec *create_timestamp()

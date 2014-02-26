@@ -146,23 +146,35 @@ static void timespec_add(struct timespec *t, struct timespec delta)
 	t->tv_sec += delta.tv_sec;
 }
 
-void ferite_profile_begin(FeriteScript *script)
+void ferite_profile_begin(char *filename, unsigned int line, unsigned int depth)
 {
-	struct profile_entry *pe = hash_get_or_create(script->current_op_file, script->current_op_line);
+	struct profile_entry *pe;
+
+	pe = hash_get_or_create(filename, line);
 	//fprintf(stderr, ">>> %s:%d\n", script->current_op_file, script->current_op_line);
 
+	// fprintf(stderr, "push depth %d %s:%d\n", depth, pe->filename, pe->line);
 	ferite_stack_push(NULL, pe->stack, create_timestamp());
 	pe->ncalls++;
 }
 
-void ferite_profile_end(FeriteScript *script)
+void ferite_profile_end(char *filename, unsigned int line, unsigned int depth)
 {
-	struct profile_entry *pe = hash_get_or_create(script->current_op_file, script->current_op_line);
+	struct profile_entry *pe;
 	struct timespec end, *start, duration;
+
+	pe = hash_get_or_create(filename, line);
 	//fprintf(stderr, "<<< %s:%d\n", script->current_op_file, script->current_op_line);
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+	//fprintf(stderr, "pop depth %d %s:%d\n", depth, pe->filename, pe->line);
 	start = ferite_stack_pop(NULL, pe->stack);
+	if (start == NULL) {
+		// fprintf(stderr, "Error got NULL start timespec for pop %s:%d\n", pe->filename, pe->line);
+		// fprintf(stderr, "for script->current_op_file [%s] script->current_op_line [%d]\n", filename, line);
+		return;
+
+	}
 	duration = timespec_diff(start, &end);
 	timespec_add(&pe->total_duration, duration);
 
@@ -174,6 +186,8 @@ void ferite_profile_save()
 {
 	int i;
 	FILE *f;
+	char *path[PATH_MAX];
+	char *p;
 
 	f = fopen(profile_output, "w");
 	if (f == NULL) {
@@ -186,7 +200,23 @@ void ferite_profile_save()
 		if (pe == NULL)
 			continue;
 		do {
-			fprintf(f, "%s:%d %d %ld.%ld\n", pe->filename, pe->line, pe->ncalls, pe->total_duration.tv_sec, pe->total_duration.tv_nsec);
+
+			if (realpath(pe->filename, path) == NULL) {
+				perror(pe->filename);
+				p = pe->filename;
+			} else {
+				p = path;
+			}
+			fprintf(f, "%7d %4ld.%-9ld %s:%d\n",
+				pe->ncalls,
+				pe->total_duration.tv_sec,
+				pe->total_duration.tv_nsec,
+				p,
+				pe->line
+				);
+			if (pe->stack->stack_ptr) {
+				fprintf(stderr, "Stack size of %s:%d is %d???\n", pe->filename, pe->line, pe->stack->stack_ptr);
+			}
 			pe = pe->next;
 		} while (pe);
 	}

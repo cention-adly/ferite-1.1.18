@@ -184,16 +184,34 @@ void ferite_profile_end(char *filename, unsigned int line, unsigned int depth)
 	ffree_ngc(start);
 }
 
+static int format_profile_filename(char *format, char *buf)
+{
+	struct tm now;
+	time_t t;
+
+	(void)time(&t);
+	(void)localtime_r(&t, &now);
+
+	return strftime(buf, PATH_MAX, format, &now) != 0;
+}
+
 void ferite_profile_save()
 {
 	int i;
 	FILE *f;
-	char *path[PATH_MAX];
+	char path[PATH_MAX];
+	char filename[PATH_MAX];
 	char *p;
 
-	f = fopen(profile_output, "w");
+	if (!format_profile_filename(profile_output, filename)) {
+		fprintf(stderr, "Error: profile output '%s' results in empty filename\n", profile_output);
+
+		return;
+	}
+
+	f = fopen(filename, "w");
 	if (f == NULL) {
-		perror(profile_output);
+		perror(filename);
 		return;
 	}
 
@@ -224,7 +242,7 @@ void ferite_profile_save()
 	}
 
 	if (fclose(f) == EOF)
-		perror(profile_output);
+		perror(filename);
 }
 
 void ferite_profile_output(char *filename) {

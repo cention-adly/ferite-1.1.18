@@ -25,19 +25,6 @@ static unsigned int hash(char *key)
 	return hash % FERITE_PROFILE_NHASH;
 }
 
-static struct profile_entry *hash_lookup(char *key) {
-	unsigned int idx = hash(key);
-	return profile_entries[idx];
-}
-
-//static void *xmalloc(size_t bytes)
-//{
-//	void *buf = fmalloc_ngc(bytes);
-//	if (buf == NULL)
-//		DIE("OOM");
-//	return buf;
-//}
-
 static int number_width(unsigned int num)
 {
 	unsigned int width = 0;

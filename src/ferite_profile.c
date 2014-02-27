@@ -3,12 +3,14 @@
 #endif
 #include <stdio.h>
 #include "ferite.h"
+#include <errno.h>
 
 #define DIE(reason) do { fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, reason); exit(1); } while(0)
 #define ONE_BILLION 1000000000L
 
 int ferite_profile_enabled = FE_FALSE;
 
+#define PROFILE_LINES 50
 #define FERITE_PROFILE_NHASH 8192
 #define FERITE_PROFILE_STACK_SIZE 5
 static struct profile_entry *profile_entries[FERITE_PROFILE_NHASH] = { NULL };
@@ -59,7 +61,24 @@ static int get_line_count(char *filename, size_t *count)
 	return 0;
 }
 
-static int profile_line_entry_init(struct profile_entry *pe)
+static int file_exists(const char *filename)
+{
+	struct stat st;
+	int r = stat(filename, &st);
+	if (r == ENOENT)
+		return 0;
+	return 1;
+}
+
+static int profile_line_entry_init_for_eval(struct profile_entry *pe)
+{
+	pe->is_file = 0;
+	pe->lines = fcalloc_ngc(sizeof(struct profile_line_entry), PROFILE_LINES + 1);
+	pe->line_count = PROFILE_LINES;
+
+	return 0;
+}
+static int profile_line_entry_init_for_file(struct profile_entry *pe)
 {
 	size_t line_count;
 
@@ -68,9 +87,19 @@ static int profile_line_entry_init(struct profile_entry *pe)
 		return 1;
 	}
 
-	pe->lines = fcalloc_ngc(sizeof(struct profile_line_entry), line_count);
+	pe->is_file = 1;
+	pe->lines = fcalloc_ngc(sizeof(struct profile_line_entry), line_count + 1);
 	pe->line_count = line_count;
+
 	return 0;
+}
+
+static int profile_line_entry_init(struct profile_entry *pe)
+{
+	if (file_exists(pe->filename))
+		return profile_line_entry_init_for_file(pe);
+
+	return profile_line_entry_init_for_eval(pe);
 }
 
 static struct profile_entry *profile_init(char *filename)
@@ -78,8 +107,9 @@ static struct profile_entry *profile_init(char *filename)
 	struct profile_entry *pe;
 
 	pe = fmalloc_ngc(sizeof(struct profile_entry));
+	fprintf(stderr, "Add %s\n", filename);
 	pe->filename = ferite_strdup(filename, __FILE__, __LINE__);
-	if (profile_line_entry_init(pe) == 1) {
+	if (profile_line_entry_init(pe)) {
 		return NULL;
 	}
 
@@ -91,6 +121,13 @@ static struct profile_entry *profile_init(char *filename)
 static int is_profile_for(char *filename, struct profile_entry *pe)
 {
 	return strcmp(pe->filename, filename) == 0;
+}
+
+static struct profile_entry *hash_get(char *filename)
+{
+	unsigned int idx = hash(filename);
+
+	return profile_entries[idx];
 }
 
 static struct profile_entry *hash_get_or_create(char *filename)
@@ -177,10 +214,30 @@ void ferite_profile_end(char *filename, size_t line, unsigned int depth)
 	struct profile_line_entry *le;
 	struct timespec end, *start, duration;
 
-	pe = hash_get_or_create(filename);
+	pe = hash_get(filename);
+	if (pe == NULL) {
+		fprintf(stderr, "No hash for file %s ???", filename);
+		return;
+	}
 	if (pe->line_count < line) {
-		fprintf(stderr, "Error: Line number %lu exceeds the one we counted initially (%lu) for file %s", line, pe->line_count, filename);
-		exit(1);
+		if (pe->is_file) {
+			fprintf(stderr, "Error: Line number %lu exceeds the one we counted initially (%lu) for file %s",
+				line, pe->line_count, filename);
+			exit(1);
+		} else {
+			size_t add = line - pe->line_count;
+			if (add < PROFILE_LINES) {
+				add = PROFILE_LINES;
+			}
+
+			pe->lines = frealloc_ngc(pe->lines, pe->line_count + add);
+			if (pe->lines == NULL) {
+				fprintf(stderr, "OOM reallocating profile lines record\n");
+				exit(1);
+			}
+			bzero(pe->lines + pe->line_count + 1, add);
+			pe->line_count += add;
+		}
 	}
 
 	le = &pe->lines[line];

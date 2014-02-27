@@ -79,6 +79,8 @@ static struct profile_entry *ferite_profile_init(char *filename, int line)
 	pe->stack = ferite_create_stack(NULL, FERITE_PROFILE_STACK_SIZE);
 
 	pe->next = NULL;
+
+	return pe;
 }
 
 static int is_profile_for(char *filename, int line, struct profile_entry *pe)

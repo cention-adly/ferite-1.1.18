@@ -272,7 +272,7 @@ static int format_profile_filename(char *format, char *buf)
 void write_profile_line_entries(FILE *f, struct profile_entry *pe) {
 	struct profile_line_entry *le;
 	char path[PATH_MAX];
-	int i;
+	size_t line_no;
 	char *p = pe->filename;
 
 	if (realpath(pe->filename, path) != NULL)
@@ -280,10 +280,9 @@ void write_profile_line_entries(FILE *f, struct profile_entry *pe) {
 	else
 		perror("hahah");
 
-	for (i = 0; i < pe->line_count; i++) {
-		le = &pe->lines[i];
+	for (line_no = 1; line_no <= pe->line_count; line_no++) {
+		le = &pe->lines[line_no];
 		if (le->ncalls > 0) {
-			size_t line_no = i + 1;
 			fprintf(f, "%7d %4ld.%-9ld %s:%lu\n",
 				le->ncalls,
 				le->total_duration.tv_sec,

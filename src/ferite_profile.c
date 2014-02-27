@@ -107,7 +107,6 @@ static struct profile_entry *profile_init(char *filename)
 	struct profile_entry *pe;
 
 	pe = fmalloc_ngc(sizeof(struct profile_entry));
-	fprintf(stderr, "Add %s\n", filename);
 	pe->filename = ferite_strdup(filename, __FILE__, __LINE__);
 	if (profile_line_entry_init(pe)) {
 		return NULL;
@@ -290,9 +289,9 @@ void write_profile_line_entries(FILE *f, struct profile_entry *pe) {
 				p,
 				line_no
 				);
-			if (le->stack->stack_ptr) {
-				fprintf(stderr, "Stack size of %s:%lu is %d???\n", p, line_no, le->stack->stack_ptr);
-			}
+			// if (le->stack->stack_ptr) {
+			// 	fprintf(stderr, "Stack size of %s:%lu is %d???\n", p, line_no, le->stack->stack_ptr);
+			// }
 		}
 	}
 }

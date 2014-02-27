@@ -277,7 +277,7 @@ void write_profile_line_entries(FILE *f, struct profile_entry *pe) {
 	if (realpath(pe->filename, path) != NULL)
 		p = path;
 	else
-		perror(pe->filename);
+		perror("hahah");
 
 	for (i = 0; i < pe->line_count; i++) {
 		le = &pe->lines[i];

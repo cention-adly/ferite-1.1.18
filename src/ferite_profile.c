@@ -216,7 +216,7 @@ void ferite_profile_end(char *filename, size_t line, unsigned int depth)
 
 	pe = hash_get(filename);
 	if (pe == NULL) {
-		fprintf(stderr, "No hash for file %s ???", filename);
+		fprintf(stderr, "FIXME No hash for file %s ???\n", filename);
 		return;
 	}
 	if (pe->line_count < line) {

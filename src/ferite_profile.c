@@ -204,6 +204,7 @@ void ferite_profile_begin(char *filename, size_t line, unsigned int depth)
 	if (le->ncalls == 0)
 		le->stack = ferite_create_stack(NULL, FERITE_PROFILE_STACK_SIZE);
 
+	// TODO call create_timestamp() earlier
 	ferite_stack_push(NULL, le->stack, create_timestamp());
 	le->ncalls++;
 }

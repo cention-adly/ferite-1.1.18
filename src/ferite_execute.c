@@ -1394,7 +1394,7 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 	FUD(("EXECUTION STARTING\n"));
 	while( context->keep_function_running && script->keep_execution )
 	{
-		int profile_current_line = current_op->line;
+		int profile_current_line = current_op->line - 1; /* off by one */
 
 		FUD(("[%p] ", current_op ));
 		exec->line = current_op->line;

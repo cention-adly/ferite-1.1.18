@@ -9,13 +9,18 @@
 
 extern int ferite_profile_enabled;
 
-struct profile_entry {
-	char *filename;
-	int line;
+struct profile_line_entry {
 	unsigned int ncalls;
 	struct timespec total_duration;
-
 	FeriteStack *stack;
+};
+
+struct profile_entry {
+	char *filename;
+	int is_file;
+	unsigned int filename_len;
+	size_t line_count;
+	struct profile_line_entry *lines; /* 1-based indexing */
 
 	struct profile_entry *next; // next in hash table
 };

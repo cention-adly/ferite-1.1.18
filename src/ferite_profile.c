@@ -10,7 +10,7 @@
 int ferite_profile_enabled = FE_FALSE;
 
 #define FERITE_PROFILE_NHASH 8192
-#define FERITE_PROFILE_STACK_SIZE 20
+#define FERITE_PROFILE_STACK_SIZE 5
 static struct profile_entry *profile_entries[FERITE_PROFILE_NHASH] = { NULL };
 static char *profile_output = "ferite.profile";
 
@@ -37,65 +37,82 @@ static int number_width(unsigned int num)
 	return width;
 }
 
-static char *hash_get_key(char *filename, unsigned int lnum)
+static int get_line_count(char *filename, size_t *count)
 {
-	size_t len = strlen(filename);
-	char *key;
-	int ntruncated = 0;
+	FILE *f = fopen(filename, "r");
+	int ch;
+	int lines = 0;
 
-	len += number_width(lnum);
-	len += 2; // filename:lnum\0
-		  //         ^     ^
-	key = fmalloc_ngc(len);
-	if ((ntruncated = snprintf(key, len, "%s:%d", filename, lnum)) >= len) {
-		fprintf(stderr, "FIXME: %d bytes for key '%s' truncated for %s:%d\n", ntruncated, key, filename, lnum);
+	if (f == NULL) {
+		perror(filename);
+		return 1;
 	}
-	return key;
+
+	while (EOF != (ch=fgetc(f)))
+		if (ch=='\n')
+			lines++;
+	*count = lines;
+
+	if (fclose(f) == EOF) {
+		perror(filename);
+	}
+	return 0;
 }
 
-static struct profile_entry *ferite_profile_init(char *filename, int line)
+static int profile_line_entry_init(struct profile_entry *pe)
+{
+	size_t line_count;
+
+	if (get_line_count(pe->filename, &line_count) != 0) {
+		fprintf(stderr, "Error getting line count for %s", pe->filename);
+		return 1;
+	}
+
+	pe->lines = fcalloc_ngc(sizeof(struct profile_line_entry), line_count);
+	pe->line_count = line_count;
+	return 0;
+}
+
+static struct profile_entry *profile_init(char *filename)
 {
 	struct profile_entry *pe;
 
 	pe = fmalloc_ngc(sizeof(struct profile_entry));
 	pe->filename = ferite_strdup(filename, __FILE__, __LINE__);
-	pe->ncalls = 0;
-	pe->total_duration.tv_sec = 0;
-	pe->total_duration.tv_nsec = 0;
-	pe->line = line;
-	pe->stack = ferite_create_stack(NULL, FERITE_PROFILE_STACK_SIZE);
+	if (profile_line_entry_init(pe) == 1) {
+		return NULL;
+	}
 
 	pe->next = NULL;
 
 	return pe;
 }
 
-static int is_profile_for(char *filename, int line, struct profile_entry *pe)
+static int is_profile_for(char *filename, struct profile_entry *pe)
 {
-	return strcmp(pe->filename, filename) == 0 && pe->line == line;
+	return strcmp(pe->filename, filename) == 0;
 }
 
-static struct profile_entry *hash_get_or_create(char *filename, int line)
+static struct profile_entry *hash_get_or_create(char *filename)
 {
 	struct profile_entry *p = NULL;
-	char *key = hash_get_key(filename, line);
-	unsigned int idx = hash(key);
+	unsigned int idx = hash(filename);
 	struct profile_entry *pe = profile_entries[idx], *tail;
 
 	if (pe == NULL) {
-		profile_entries[idx] = ferite_profile_init(filename, line);
+		profile_entries[idx] = profile_init(filename);
 		return profile_entries[idx];
 	} else {
 		p = pe;
 		while (p) {
-			if (is_profile_for(filename, line, pe))
+			if (is_profile_for(filename, pe))
 				return pe;
 			tail = p;
 			p = p->next;
 		}
 	}
 
-	tail->next = ferite_profile_init(filename, line);
+	tail->next = profile_init(filename);
 
 	return tail;
 }
@@ -109,7 +126,8 @@ static struct timespec *create_timestamp()
 {
 	struct timespec *t = fmalloc_ngc(sizeof(struct timespec));
 
-	clock_gettime(CLOCK_MONOTONIC_RAW, t);
+	if (clock_gettime(CLOCK_MONOTONIC_RAW, t))
+		perror("create_timestamp()");
 	return t;
 }
 
@@ -138,34 +156,45 @@ static void timespec_add(struct timespec *t, struct timespec delta)
 void ferite_profile_begin(char *filename, size_t line, unsigned int depth)
 {
 	struct profile_entry *pe;
+	struct profile_line_entry *le;
 
-	pe = hash_get_or_create(filename, line);
-	//fprintf(stderr, ">>> %s:%d\n", script->current_op_file, script->current_op_line);
+	pe = hash_get_or_create(filename);
+	if (pe == NULL) {
+		fprintf(stderr, "Error creating profile entry for file %s\n", filename);
+		return;
+	}
+	le = &pe->lines[line];
+	if (le->ncalls == 0)
+		le->stack = ferite_create_stack(NULL, FERITE_PROFILE_STACK_SIZE);
 
-	// fprintf(stderr, "push depth %d %s:%d\n", depth, pe->filename, pe->line);
-	ferite_stack_push(NULL, pe->stack, create_timestamp());
-	pe->ncalls++;
+	ferite_stack_push(NULL, le->stack, create_timestamp());
+	le->ncalls++;
 }
 
 void ferite_profile_end(char *filename, size_t line, unsigned int depth)
 {
 	struct profile_entry *pe;
+	struct profile_line_entry *le;
 	struct timespec end, *start, duration;
 
-	pe = hash_get_or_create(filename, line);
-	//fprintf(stderr, "<<< %s:%d\n", script->current_op_file, script->current_op_line);
+	pe = hash_get_or_create(filename);
+	if (pe->line_count < line) {
+		fprintf(stderr, "Error: Line number %lu exceeds the one we counted initially (%lu) for file %s", line, pe->line_count, filename);
+		exit(1);
+	}
+
+	le = &pe->lines[line];
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-	//fprintf(stderr, "pop depth %d %s:%d\n", depth, pe->filename, pe->line);
-	start = ferite_stack_pop(NULL, pe->stack);
+	start = ferite_stack_pop(NULL, le->stack);
 	if (start == NULL) {
-		// fprintf(stderr, "Error got NULL start timespec for pop %s:%d\n", pe->filename, pe->line);
-		// fprintf(stderr, "for script->current_op_file [%s] script->current_op_line [%d]\n", filename, line);
+		fprintf(stderr, "Error got NULL start timespec for pop %s:%d\n", pe->filename, line);
+		fprintf(stderr, "for script->current_op_file [%s] script->current_op_line [%d]\n", filename, line);
 		return;
 
 	}
 	duration = timespec_diff(start, &end);
-	timespec_add(&pe->total_duration, duration);
+	timespec_add(&le->total_duration, duration);
 
 	//fprintf(stderr, "Total duration for %s:%d = %ld.%ld\n", pe->filename, pe->line, pe->total_duration.tv_sec, pe->total_duration.tv_nsec);
 	ffree_ngc(start);
@@ -182,13 +211,40 @@ static int format_profile_filename(char *format, char *buf)
 	return strftime(buf, PATH_MAX, format, &now) != 0;
 }
 
+void write_profile_line_entries(FILE *f, struct profile_entry *pe) {
+	struct profile_line_entry *le;
+	char path[PATH_MAX];
+	int i;
+	char *p = pe->filename;
+
+	if (realpath(pe->filename, path) != NULL)
+		p = path;
+	else
+		perror(pe->filename);
+
+	for (i = 0; i < pe->line_count; i++) {
+		le = &pe->lines[i];
+		if (le->ncalls > 0) {
+			size_t line_no = i + 1;
+			fprintf(f, "%7d %4ld.%-9ld %s:%lu\n",
+				le->ncalls,
+				le->total_duration.tv_sec,
+				le->total_duration.tv_nsec,
+				p,
+				line_no
+				);
+			if (le->stack->stack_ptr) {
+				fprintf(stderr, "Stack size of %s:%lu is %d???\n", p, line_no, le->stack->stack_ptr);
+			}
+		}
+	}
+}
+
 void ferite_profile_save()
 {
 	int i;
 	FILE *f;
-	char path[PATH_MAX];
 	char filename[PATH_MAX];
-	char *p;
 
 	if (!format_profile_filename(profile_output, filename)) {
 		fprintf(stderr, "Error: profile output '%s' results in empty filename\n", profile_output);
@@ -204,28 +260,10 @@ void ferite_profile_save()
 
 	for (i = 0; i < FERITE_PROFILE_NHASH; i++) {
 		struct profile_entry *pe = profile_entries[i];
-		if (pe == NULL)
-			continue;
-		do {
-
-			if (realpath(pe->filename, path) == NULL) {
-				perror(pe->filename);
-				p = pe->filename;
-			} else {
-				p = path;
-			}
-			fprintf(f, "%7d %4ld.%-9ld %s:%d\n",
-				pe->ncalls,
-				pe->total_duration.tv_sec,
-				pe->total_duration.tv_nsec,
-				p,
-				pe->line
-				);
-			if (pe->stack->stack_ptr) {
-				fprintf(stderr, "Stack size of %s:%d is %d???\n", pe->filename, pe->line, pe->stack->stack_ptr);
-			}
+		while (pe) {
+			write_profile_line_entries(f, pe);
 			pe = pe->next;
-		} while (pe);
+		}
 	}
 
 	if (fclose(f) == EOF)

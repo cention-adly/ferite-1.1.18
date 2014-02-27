@@ -135,7 +135,7 @@ static void timespec_add(struct timespec *t, struct timespec delta)
 	t->tv_sec += delta.tv_sec;
 }
 
-void ferite_profile_begin(char *filename, unsigned int line, unsigned int depth)
+void ferite_profile_begin(char *filename, size_t line, unsigned int depth)
 {
 	struct profile_entry *pe;
 
@@ -147,7 +147,7 @@ void ferite_profile_begin(char *filename, unsigned int line, unsigned int depth)
 	pe->ncalls++;
 }
 
-void ferite_profile_end(char *filename, unsigned int line, unsigned int depth)
+void ferite_profile_end(char *filename, size_t line, unsigned int depth)
 {
 	struct profile_entry *pe;
 	struct timespec end, *start, duration;

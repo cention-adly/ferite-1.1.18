@@ -8,12 +8,10 @@
 #define DIE(reason) do { fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, reason); exit(1); } while(0)
 #define ONE_BILLION 1000000000L
 
-int ferite_profile_enabled = FE_FALSE;
-
 #define PROFILE_LINES 50
 #define FERITE_PROFILE_NHASH 8192
 #define FERITE_PROFILE_STACK_SIZE 5
-static struct profile_entry *profile_entries[FERITE_PROFILE_NHASH] = { NULL };
+//FIXME int ferite_profile_enabled = FE_FALSE;
 static char *profile_output = "ferite.profile";
 
 static unsigned int hash(char *key)
@@ -70,15 +68,15 @@ static int file_exists(const char *filename)
 	return 1;
 }
 
-static int profile_line_entry_init_for_eval(struct profile_entry *pe)
+static int profile_line_entry_init_for_eval(FeriteProfileEntry *pe)
 {
 	pe->is_file = 0;
-	pe->lines = fcalloc_ngc(sizeof(struct profile_line_entry), PROFILE_LINES + 1);
+	pe->lines = fcalloc_ngc(sizeof(FeriteProfileLineEntry), PROFILE_LINES + 1);
 	pe->line_count = PROFILE_LINES;
 
 	return 0;
 }
-static int profile_line_entry_init_for_file(struct profile_entry *pe)
+static int profile_line_entry_init_for_file(FeriteProfileEntry *pe)
 {
 	size_t line_count;
 
@@ -88,13 +86,13 @@ static int profile_line_entry_init_for_file(struct profile_entry *pe)
 	}
 
 	pe->is_file = 1;
-	pe->lines = fcalloc_ngc(sizeof(struct profile_line_entry), line_count + 1);
+	pe->lines = fcalloc_ngc(sizeof(FeriteProfileLineEntry), line_count + 1);
 	pe->line_count = line_count;
 
 	return 0;
 }
 
-static int profile_line_entry_init(struct profile_entry *pe)
+static int profile_line_entry_init(FeriteProfileEntry *pe)
 {
 	if (file_exists(pe->filename))
 		return profile_line_entry_init_for_file(pe);
@@ -102,11 +100,11 @@ static int profile_line_entry_init(struct profile_entry *pe)
 	return profile_line_entry_init_for_eval(pe);
 }
 
-static struct profile_entry *profile_init(char *filename)
+static FeriteProfileEntry *profile_init(char *filename)
 {
-	struct profile_entry *pe;
+	FeriteProfileEntry *pe;
 
-	pe = fmalloc_ngc(sizeof(struct profile_entry));
+	pe = fmalloc_ngc(sizeof(FeriteProfileEntry));
 	pe->filename = ferite_strdup(filename, __FILE__, __LINE__);
 	if (profile_line_entry_init(pe)) {
 		return NULL;
@@ -117,23 +115,23 @@ static struct profile_entry *profile_init(char *filename)
 	return pe;
 }
 
-static int is_profile_for(char *filename, struct profile_entry *pe)
+static int is_profile_for(char *filename, FeriteProfileEntry *pe)
 {
 	return strcmp(pe->filename, filename) == 0;
 }
 
-static struct profile_entry *hash_get(char *filename)
+static FeriteProfileEntry *hash_get(char *filename)
 {
 	unsigned int idx = hash(filename);
 
 	return profile_entries[idx];
 }
 
-static struct profile_entry *hash_get_or_create(char *filename)
+static FeriteProfileEntry *hash_get_or_create(char *filename)
 {
-	struct profile_entry *p = NULL;
+	FeriteProfileEntry *p = NULL;
 	unsigned int idx = hash(filename);
-	struct profile_entry *pe = profile_entries[idx], *tail;
+	FeriteProfileEntry *pe = profile_entries[idx], *tail;
 
 	if (pe == NULL) {
 		profile_entries[idx] = profile_init(filename);
@@ -153,7 +151,7 @@ static struct profile_entry *hash_get_or_create(char *filename)
 	return tail;
 }
 
-int ferite_profile_toggle(int state)
+int ferite_profile_toggle(FeriteProfile *profile, int state)
 {
 	return ferite_profile_enabled = state;
 }
@@ -189,10 +187,10 @@ static void timespec_add(struct timespec *t, struct timespec delta)
 	t->tv_sec += delta.tv_sec;
 }
 
-void ferite_profile_begin(char *filename, size_t line, unsigned int depth)
+void ferite_profile_begin(FeriteProfile *profile, char *filename, size_t line)
 {
-	struct profile_entry *pe;
-	struct profile_line_entry *le;
+	FeriteProfileEntry *pe;
+	FeriteProfileLineEntry *le;
 
 	pe = hash_get_or_create(filename);
 	if (pe == NULL) {
@@ -208,10 +206,10 @@ void ferite_profile_begin(char *filename, size_t line, unsigned int depth)
 	le->ncalls++;
 }
 
-void ferite_profile_end(char *filename, size_t line, unsigned int depth)
+void ferite_profile_end(FeriteProfile *profile, char *filename, size_t line)
 {
-	struct profile_entry *pe;
-	struct profile_line_entry *le;
+	FeriteProfileEntry *pe;
+	FeriteProfileLineEntry *le;
 	struct timespec end, *start, duration;
 
 	pe = hash_get(filename);
@@ -268,8 +266,8 @@ static int format_profile_filename(char *format, char *buf)
 	return strftime(buf, PATH_MAX, format, &now) != 0;
 }
 
-void write_profile_line_entries(FILE *f, struct profile_entry *pe) {
-	struct profile_line_entry *le;
+void write_profile_line_entries(FILE *f, FeriteProfileEntry *pe) {
+	FeriteProfileLineEntry *le;
 	char path[PATH_MAX];
 	size_t line_no;
 	char *p = pe->filename;
@@ -296,7 +294,7 @@ void write_profile_line_entries(FILE *f, struct profile_entry *pe) {
 	}
 }
 
-void ferite_profile_save()
+void ferite_profile_save(FeriteProfile *profile)
 {
 	int i;
 	FILE *f;
@@ -315,7 +313,7 @@ void ferite_profile_save()
 	}
 
 	for (i = 0; i < FERITE_PROFILE_NHASH; i++) {
-		struct profile_entry *pe = profile_entries[i];
+		FeriteProfileEntry *pe = profile_entries[i];
 		while (pe) {
 			write_profile_line_entries(f, pe);
 			pe = pe->next;

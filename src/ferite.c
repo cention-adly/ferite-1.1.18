@@ -149,12 +149,15 @@ int ferite_init( int argc, char **argv )
 				if( strcmp( argv[i], "--fe-show-partial-implementation") == 0 )
 					ferite_show_partial_implementation = FE_TRUE;
 				if( strncmp( argv[i], "--fe-profile", 12) == 0) {
+				   int len;
 				   if (strlen(argv[i]) <= 13) {
 				      fprintf( stderr, "--fe-profile needs argument: --fe-profile=filename\n");
 				      exit(1);
 				   }
-				   ferite_profile_output(argv[i] + 13);
-				   ferite_profile_toggle(FE_TRUE);
+				   len = strlen(argv[i] + 13);
+				   ferite_profile_filename_pattern = fmalloc_ngc(len + 1);
+				   strncpy(ferite_profile_filename_pattern, len + 1, argv[i] + 13)
+				   ferite_enable_profiling = 1;
 				}
 			}
 		}
@@ -229,6 +232,7 @@ int ferite_deinit()
 		ferite_memory_deinit();
 		ferite_deinit_regex();
 		ferite_deinit_compiler();
+		ferite_profile_save();
 		ferite_is_initialised = 0;
 	}
 	FE_LEAVE_FUNCTION( !ferite_is_initialised );

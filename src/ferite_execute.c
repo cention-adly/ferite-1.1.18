@@ -102,7 +102,7 @@ int ferite_script_execute( FeriteScript *script )
 			ferite_thread_group_wait( script, script->thread_group );
 #endif
 		
-			FERITE_PROFILE_SAVE();
+			// FERITE_PROFILE_SAVE(profile);
 			/* clean up the system */
 			if( rval != NULL )
 			{
@@ -1373,8 +1373,10 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 	FeriteVariable *return_val = NULL;
 	FeriteOpcodeContext *context, stack_context;
 	int			 error_op_location = 0, error_array[ERROR_UPPER_BOUND + 1];
+	// FIXME use script->current_op_file instead of profile_filename
+	// (after fixing multithread problem)
 	char *profile_filename;
-	static unsigned int call_depth = 0;
+	FeriteProfile *profile;
 	/*}}}*/
 
 	FE_ENTER_FUNCTION;
@@ -1391,6 +1393,9 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 	script->current_op_file = function->bytecode->filename;
 	profile_filename = fstrdup(script->current_op_file);
 
+	if (ferite_profile_enabled)
+		profile = ferite_profile_init();
+
 	FUD(("EXECUTION STARTING\n"));
 	while( context->keep_function_running && script->keep_execution )
 	{
@@ -1401,8 +1406,8 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 		script->current_op_line = current_op->line;
 		exec->block_depth = current_op->block_depth;
 
-		call_depth++;
-		FERITE_PROFILE_BEGIN(call_depth, profile_filename, profile_current_line);
+		FERITE_PROFILE_BEGIN(profile, profile_filename,
+				     profile_current_line);
 
 		if( ferite_opcode_table[current_op->OP_TYPE].op != NULL ) {
 			return_val = CALL_INLINE_OP((ferite_opcode_table[current_op->OP_TYPE].op));
@@ -1478,9 +1483,8 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 		}
 		/*}}}*/
 
-		//FERITE_PROFILE_END(script);
-		FERITE_PROFILE_END(call_depth, profile_filename, profile_current_line);
-		call_depth--;
+		FERITE_PROFILE_END(profile, profile_filename,
+				   profile_current_line);
 		
 		if( !context->keep_function_running || !script->keep_execution )
 			break;

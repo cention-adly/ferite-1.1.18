@@ -11,8 +11,9 @@
 #define PROFILE_LINES 50
 #define FERITE_PROFILE_NHASH 8192
 #define FERITE_PROFILE_STACK_SIZE 5
-//FIXME int ferite_profile_enabled = FE_FALSE;
+int ferite_profile_enabled = FE_FALSE;
 static char *profile_output = "ferite.profile";
+static FeriteProfileEntry *profile_entries[FERITE_PROFILE_NHASH] = { NULL };
 
 static unsigned int hash(char *key)
 {
@@ -63,9 +64,14 @@ static int file_exists(const char *filename)
 {
 	struct stat st;
 	int r = stat(filename, &st);
-	if (r == ENOENT)
+	if (r == 0)
+		return 1;
+	if (errno == ENOENT)
 		return 0;
-	return 1;
+
+	fprintf(stderr, "Error stat'ing file %s\n", filename);
+	perror(filename);
+	return 0;
 }
 
 static int profile_line_entry_init_for_eval(FeriteProfileEntry *pe)
@@ -86,8 +92,12 @@ static int profile_line_entry_init_for_file(FeriteProfileEntry *pe)
 	}
 
 	pe->is_file = 1;
-	pe->lines = fcalloc_ngc(sizeof(FeriteProfileLineEntry), line_count + 1);
-	pe->line_count = line_count;
+	pe->lines = fcalloc_ngc(sizeof(FeriteProfileLineEntry),
+			line_count
+			+ 1 /* 1-based indexing, for unused lines[0] */
+			+ 1 /* Count in EOF too */
+			);
+	pe->line_count = line_count + 1 /* EOF */;
 
 	return 0;
 }
@@ -96,8 +106,9 @@ static int profile_line_entry_init(FeriteProfileEntry *pe)
 {
 	if (file_exists(pe->filename))
 		return profile_line_entry_init_for_file(pe);
-
-	return profile_line_entry_init_for_eval(pe);
+	fprintf(stderr, "FIXME: file %s does not exist? (%s:%d)\n",
+			pe->filename, __FILE__, __LINE__);
+	return 0;
 }
 
 static FeriteProfileEntry *profile_init(char *filename)
@@ -151,7 +162,7 @@ static FeriteProfileEntry *hash_get_or_create(char *filename)
 	return tail;
 }
 
-int ferite_profile_toggle(FeriteProfile *profile, int state)
+int ferite_profile_toggle(int state)
 {
 	return ferite_profile_enabled = state;
 }
@@ -187,14 +198,15 @@ static void timespec_add(struct timespec *t, struct timespec delta)
 	t->tv_sec += delta.tv_sec;
 }
 
-void ferite_profile_begin(FeriteProfile *profile, char *filename, size_t line)
+void ferite_profile_begin(FeriteScript *script, size_t line)
 {
 	FeriteProfileEntry *pe;
 	FeriteProfileLineEntry *le;
+	// TODO lock based on script->lock
 
-	pe = hash_get_or_create(filename);
+	pe = hash_get_or_create(script->current_op_file);
 	if (pe == NULL) {
-		fprintf(stderr, "Error creating profile entry for file %s\n", filename);
+		fprintf(stderr, "Error creating profile entry for file %s\n", script->current_op_file);
 		return;
 	}
 	le = &pe->lines[line];
@@ -206,21 +218,23 @@ void ferite_profile_begin(FeriteProfile *profile, char *filename, size_t line)
 	le->ncalls++;
 }
 
-void ferite_profile_end(FeriteProfile *profile, char *filename, size_t line)
+void ferite_profile_end(FeriteScript *script, size_t line)
 {
 	FeriteProfileEntry *pe;
 	FeriteProfileLineEntry *le;
 	struct timespec end, *start, duration;
 
-	pe = hash_get(filename);
+	// TODO lock based on script->lock
+
+	pe = hash_get(script->current_op_file);
 	if (pe == NULL) {
-		fprintf(stderr, "FIXME No hash for file %s ???\n", filename);
+		fprintf(stderr, "FIXME No hash for file %s ???\n", script->current_op_file);
 		return;
 	}
 	if (pe->line_count < line) {
 		if (pe->is_file) {
 			fprintf(stderr, "Error: Line number %lu exceeds the one we counted initially (%lu) for file %s",
-				line, pe->line_count, filename);
+				line, pe->line_count, script->current_op_file);
 			exit(1);
 		} else {
 			size_t add = line - pe->line_count;
@@ -243,8 +257,8 @@ void ferite_profile_end(FeriteProfile *profile, char *filename, size_t line)
 	clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 	start = ferite_stack_pop(NULL, le->stack);
 	if (start == NULL) {
-		fprintf(stderr, "Error got NULL start timespec for pop %s:%d\n", pe->filename, line);
-		fprintf(stderr, "for script->current_op_file [%s] script->current_op_line [%d]\n", filename, line);
+		fprintf(stderr, "Error got NULL start timespec for pop %s:%lu\n", pe->filename, line);
+		fprintf(stderr, "for script->current_op_file [%s] script->current_op_line [%lu]\n", script->current_op_file, line);
 		return;
 
 	}
@@ -274,8 +288,12 @@ void write_profile_line_entries(FILE *f, FeriteProfileEntry *pe) {
 
 	if (realpath(pe->filename, path) != NULL)
 		p = path;
-	else
-		perror("hahah");
+	else {
+		if (ENOENT != errno) {
+			perror(pe->filename);
+
+		}
+	}
 
 	for (line_no = 1; line_no <= pe->line_count; line_no++) {
 		le = &pe->lines[line_no];
@@ -294,7 +312,7 @@ void write_profile_line_entries(FILE *f, FeriteProfileEntry *pe) {
 	}
 }
 
-void ferite_profile_save(FeriteProfile *profile)
+void ferite_profile_save()
 {
 	int i;
 	FILE *f;

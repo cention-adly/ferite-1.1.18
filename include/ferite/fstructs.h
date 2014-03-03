@@ -72,7 +72,6 @@ typedef struct _ferite_variable_accessors          FeriteVariableAccessors;
 typedef struct _ferite_variable_subtype            FeriteVariableSubType;
 typedef struct _ferite_profile_line_entry          FeriteProfileLineEntry;
 typedef struct _ferite_profile_entry               FeriteProfileEntry;
-typedef struct _ferite_profile                     FeriteProfile;
 
 typedef void (*FeriteVariableGetAccessor)(FeriteScript*,FeriteVariable*);
 typedef void (*FeriteVariableSetAccessor)(FeriteScript*,FeriteVariable*,FeriteVariable*);
@@ -536,11 +535,5 @@ struct _ferite_profile_entry {
 
 	FeriteProfileEntry *next; // next in hash table
 };
-
-struct _ferite_profile {
-   int enabled;
-   FeriteProfileEntry *profile_entries[FERITE_PROFILE_NHASH] = { NULL };
-
-}
 
 #endif /* __FERITE_STRUCTS_H__ */

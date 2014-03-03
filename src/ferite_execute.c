@@ -1374,7 +1374,7 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 	int			 error_op_location = 0, error_array[ERROR_UPPER_BOUND + 1];
 	// FIXME use script->current_op_file instead of profile_filename
 	// (after fixing multithread problem)
-	char *profile_filename;
+	char profile_filename[PATH_MAX];
 	/*}}}*/
 
 	FE_ENTER_FUNCTION;
@@ -1389,7 +1389,7 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 	context->current_op_loc++;
 
 	script->current_op_file = function->bytecode->filename;
-	profile_filename = fstrdup(script->current_op_file);
+	strcpy(profile_filename, script->current_op_file);
 
 	FUD(("EXECUTION STARTING\n"));
 	while( context->keep_function_running && script->keep_execution )
@@ -1401,7 +1401,7 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 		script->current_op_line = current_op->line;
 		exec->block_depth = current_op->block_depth;
 
-		FERITE_PROFILE_BEGIN(script, profile_current_line);
+		FERITE_PROFILE_BEGIN(profile_filename, profile_current_line);
 
 		if( ferite_opcode_table[current_op->OP_TYPE].op != NULL ) {
 			return_val = CALL_INLINE_OP((ferite_opcode_table[current_op->OP_TYPE].op));
@@ -1477,7 +1477,7 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 		}
 		/*}}}*/
 
-		FERITE_PROFILE_END(script, profile_current_line);
+		FERITE_PROFILE_END(profile_filename, profile_current_line);
 		
 		if( !context->keep_function_running || !script->keep_execution )
 			break;
@@ -1488,8 +1488,6 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 			ferite_check_gc( script );		
 		/*}}}*/
 	}
-
-	ffree(profile_filename);
 
 	FUD(("EXECUTION COMPLETE. Have a nice day :). (%s)\n", function->name));
 	FE_LEAVE_FUNCTION( return_val );

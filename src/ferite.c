@@ -70,6 +70,7 @@ int ferite_init( int argc, char **argv )
 {
 	int i = 0;
 	int wantDebugBanner = FE_TRUE;
+	char *profile_filename_pattern = NULL;
 	
 	FE_ENTER_FUNCTION;
 
@@ -154,8 +155,7 @@ int ferite_init( int argc, char **argv )
 				      fprintf( stderr, "--fe-profile needs argument: --fe-profile=filename\n");
 				      exit(1);
 				   }
-				   ferite_profile_output(argv[i] + 13);
-				   ferite_profile_toggle(FE_TRUE);
+				   profile_filename_pattern = argv[i] + 13;
 				}
 			}
 		}
@@ -201,6 +201,11 @@ int ferite_init( int argc, char **argv )
 			fprintf( stderr, "Unable to initialise the module subsystem\n" ); /* FIXME: replace with something nicer */
 			ferite_memory_deinit();
 			FE_LEAVE_FUNCTION( ferite_is_initialised );
+		}
+
+		if (profile_filename_pattern != NULL) {
+		   ferite_profile_output(profile_filename_pattern);
+		   ferite_profile_toggle(FE_TRUE);
 		}
 
 		ferite_init_compiler();

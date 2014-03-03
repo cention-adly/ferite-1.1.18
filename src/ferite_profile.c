@@ -3,7 +3,20 @@
 #endif
 #include <stdio.h>
 #include "ferite.h"
+#include "aphex.h"
 #include <errno.h>
+
+AphexMutex *profile_mutex = NULL;
+
+#if 0
+#define initlock(l)
+#define getlock(l)
+#define unlock(l)
+#else
+#define initlock(l) l = aphex_mutex_create()
+#define getlock(l) aphex_mutex_lock(l)
+#define unlock(l) aphex_mutex_unlock(l)
+#endif
 
 #define DIE(reason) do { fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, reason); exit(1); } while(0)
 #define ONE_BILLION 1000000000L
@@ -169,6 +182,13 @@ static FeriteProfileEntry *hash_get_or_create(char *filename)
 
 int ferite_profile_toggle(int state)
 {
+	if (profile_mutex == NULL)
+		initlock(profile_mutex);
+	if (state)
+		fprintf(stderr, "Enabling ferite profiling\n");
+	else
+		fprintf(stderr, "Disabling ferite profiling\n");
+
 	return ferite_profile_enabled = state;
 }
 
@@ -203,15 +223,19 @@ static void timespec_add(struct timespec *t, struct timespec delta)
 	t->tv_sec += delta.tv_sec;
 }
 
-void ferite_profile_begin(FeriteScript *script, size_t line)
+void ferite_profile_begin(char *filename, size_t line)
 {
 	FeriteProfileEntry *pe;
 	FeriteProfileLineEntry *le;
-	// TODO lock based on script->lock
 
-	pe = hash_get_or_create(script->current_op_file);
+	getlock(profile_mutex);
+	//fprintf(stderr, "> begin %s\n", filename);
+	//fflush(stderr);
+
+	pe = hash_get_or_create(filename);
 	if (pe == NULL) {
-		fprintf(stderr, "Error creating profile entry for file %s\n", script->current_op_file);
+		fprintf(stderr, "Error creating profile entry for file %s\n", filename);
+		unlock(profile_mutex);
 		return;
 	}
 	le = &pe->lines[line];
@@ -221,25 +245,40 @@ void ferite_profile_begin(FeriteScript *script, size_t line)
 	// TODO call create_timestamp() earlier
 	ferite_stack_push(NULL, le->stack, create_timestamp());
 	le->ncalls++;
+
+	unlock(profile_mutex);
 }
 
-void ferite_profile_end(FeriteScript *script, size_t line)
+void ferite_profile_end(char *filename, size_t line)
 {
 	FeriteProfileEntry *pe;
 	FeriteProfileLineEntry *le;
 	struct timespec end, *start, duration;
 
-	// TODO lock based on script->lock
+	static pid_t pid = 0;
+	if (pid == 0) {
+		pid = getpid();
+	}
+	pid_t other_pid  = getpid();
+	if (pid != other_pid) {
+		fprintf(stderr, "pid %d, other pid = %d\n", pid, other_pid);
+	}
 
-	pe = hash_get(script->current_op_file);
+	getlock(profile_mutex);
+	//fprintf(stderr, ">   end %s\n", filename);
+	//fflush(stderr);
+
+	pe = hash_get(filename);
 	if (pe == NULL) {
-		fprintf(stderr, "FIXME No hash for file %s ???\n", script->current_op_file);
+		fprintf(stderr, "FIXME No hash for file %s ???\n", filename);
+		unlock(profile_mutex);
 		return;
 	}
 	if (pe->line_count < line) {
 		if (pe->is_file) {
 			fprintf(stderr, "Error: Line number %lu exceeds the one we counted initially (%lu) for file %s",
-				line, pe->line_count, script->current_op_file);
+				line, pe->line_count, filename);
+			unlock(profile_mutex);
 			exit(1);
 		} else {
 			size_t add = line - pe->line_count;
@@ -250,6 +289,7 @@ void ferite_profile_end(FeriteScript *script, size_t line)
 			pe->lines = frealloc_ngc(pe->lines, pe->line_count + add);
 			if (pe->lines == NULL) {
 				fprintf(stderr, "OOM reallocating profile lines record\n");
+				unlock(profile_mutex);
 				exit(1);
 			}
 			bzero(pe->lines + pe->line_count + 1, add);
@@ -263,7 +303,8 @@ void ferite_profile_end(FeriteScript *script, size_t line)
 	start = ferite_stack_pop(NULL, le->stack);
 	if (start == NULL) {
 		fprintf(stderr, "Error got NULL start timespec for pop %s:%lu\n", pe->filename, line);
-		fprintf(stderr, "for script->current_op_file [%s] script->current_op_line [%lu]\n", script->current_op_file, line);
+		fprintf(stderr, "for filename %s:%lu\n", filename, line);
+		unlock(profile_mutex);
 		return;
 
 	}
@@ -272,6 +313,8 @@ void ferite_profile_end(FeriteScript *script, size_t line)
 
 	//fprintf(stderr, "Total duration for %s:%d = %ld.%ld\n", pe->filename, pe->line, pe->total_duration.tv_sec, pe->total_duration.tv_nsec);
 	ffree_ngc(start);
+
+	unlock(profile_mutex);
 }
 
 static int format_profile_filename(char *format, char *buf)
@@ -323,11 +366,14 @@ void ferite_profile_save()
 	FILE *f;
 	char filename[PATH_MAX];
 
+	getlock(profile_mutex);
+
 	if (!format_profile_filename(profile_output, filename)) {
 		fprintf(stderr, "Error: profile output '%s' results in empty filename\n", profile_output);
 
 		return;
 	}
+	fprintf(stderr, "saving profiling to %s\n", filename);
 
 	f = fopen(filename, "w");
 	if (f == NULL) {
@@ -342,6 +388,8 @@ void ferite_profile_save()
 			pe = pe->next;
 		}
 	}
+
+	unlock(profile_mutex);
 
 	if (fclose(f) == EOF)
 		perror(filename);

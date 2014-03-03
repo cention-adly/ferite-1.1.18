@@ -155,7 +155,7 @@ int ferite_init( int argc, char **argv )
 				      exit(1);
 				   }
 				   ferite_profile_output(argv[i] + 13);
-				   ferite_profile_enabled = FE_TRUE;
+				   ferite_profile_toggle(FE_TRUE);
 				}
 			}
 		}

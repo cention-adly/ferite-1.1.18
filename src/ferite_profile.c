@@ -131,35 +131,40 @@ static int is_profile_for(char *filename, FeriteProfileEntry *pe)
 	return strcmp(pe->filename, filename) == 0;
 }
 
+static FeriteProfileEntry *find_in_linked_list(char *filename, FeriteProfileEntry *pe)
+{
+	while (pe) {
+		if (is_profile_for(filename, pe))
+			return pe;
+		pe = pe->next;
+	}
+	return NULL;
+}
+
 static FeriteProfileEntry *hash_get(char *filename)
 {
 	unsigned int idx = hash(filename);
 
-	return profile_entries[idx];
+	return find_in_linked_list(filename, profile_entries[idx]);
 }
 
 static FeriteProfileEntry *hash_get_or_create(char *filename)
 {
 	FeriteProfileEntry *p = NULL;
 	unsigned int idx = hash(filename);
-	FeriteProfileEntry *pe = profile_entries[idx], *tail;
+	FeriteProfileEntry *pe = profile_entries[idx];
 
-	if (pe == NULL) {
-		profile_entries[idx] = profile_init(filename);
-		return profile_entries[idx];
-	} else {
-		p = pe;
-		while (p) {
-			if (is_profile_for(filename, pe))
-				return pe;
-			tail = p;
-			p = p->next;
-		}
+	if (pe) {
+		p = find_in_linked_list(filename, pe);
+		if (p)
+			return p;
 	}
 
-	tail->next = profile_init(filename);
+	p = profile_init(filename);
+	p->next = profile_entries[idx];
+	profile_entries[idx] = p;
 
-	return tail;
+	return p;
 }
 
 int ferite_profile_toggle(int state)

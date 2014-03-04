@@ -13,13 +13,17 @@ AphexMutex *profile_mutex = NULL;
 #define getlock(l)
 #define unlock(l)
 #else
-#define initlock(l) l = aphex_mutex_create()
+#define initlock(l) l = aphex_mutex_recursive_create()
 #define getlock(l) aphex_mutex_lock(l)
 #define unlock(l) aphex_mutex_unlock(l)
 #endif
 
 #define DIE(reason) do { fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, reason); exit(1); } while(0)
 #define ONE_BILLION 1000000000L
+#define ONE_MILLION 1000000L
+#define calculate_average_in_milliseconds(le) \
+	(((long)(le->total_duration.tv_sec) * ONE_BILLION \
+	 + le->total_duration.tv_nsec) / (long double)(le->ncalls) / ONE_MILLION)
 
 #define PROFILE_LINES 50
 #define FERITE_PROFILE_NHASH 8192
@@ -332,10 +336,10 @@ void write_profile_line_entries(FILE *f, FeriteProfileEntry *pe) {
 	FeriteProfileLineEntry *le;
 	char path[PATH_MAX];
 	size_t line_no;
-	char *p = pe->filename;
+	char *filename = pe->filename;
 
 	if (realpath(pe->filename, path) != NULL)
-		p = path;
+		filename = path;
 	else {
 		if (ENOENT != errno) {
 			perror(pe->filename);
@@ -346,16 +350,18 @@ void write_profile_line_entries(FILE *f, FeriteProfileEntry *pe) {
 	for (line_no = 1; line_no <= pe->line_count; line_no++) {
 		le = &pe->lines[line_no];
 		if (le->ncalls > 0) {
-			fprintf(f, "%7d %4ld.%-9ld %s:%lu\n",
+			fprintf(f, "%7d %4ld.%-9ld %8.3Lfms %s:%lu\n",
 				le->ncalls,
 				le->total_duration.tv_sec,
 				le->total_duration.tv_nsec,
-				p,
+				calculate_average_in_milliseconds(le),
+				filename,
 				line_no
 				);
-			// if (le->stack->stack_ptr) {
-			// 	fprintf(stderr, "Stack size of %s:%lu is %d???\n", p, line_no, le->stack->stack_ptr);
-			// }
+			if (le->stack->stack_ptr) {
+				fprintf(stderr, "Sanity check failed: Stack size of %s:%lu is %d???\n",
+					filename, line_no, le->stack->stack_ptr);
+			}
 		}
 	}
 }
@@ -395,8 +401,7 @@ void ferite_profile_save()
 		perror(filename);
 }
 
-void ferite_profile_output(char *filename) {
-	int pid = getpid();
+void ferite_profile_output(char *filename, pid_t pid) {
 	int len = strlen(filename) + number_width(pid) + 2;
 
 	profile_output = malloc(len);

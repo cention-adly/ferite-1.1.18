@@ -702,7 +702,7 @@ FeriteString *ferite_variable_to_str( FeriteScript *script, FeriteVariable *var,
    FE_ENTER_FUNCTION;
    if( var != NULL )
    {
-	   memset( s, '\0', 80 );
+	   s[0] = '\0';
 	   switch( F_VAR_TYPE(var) )
 	   {
 		   case F_VAR_LONG:
@@ -1290,8 +1290,9 @@ FeriteVariableSubType *ferite_subtype_link( FeriteScript *script, char *type ) {
 			if( length > 1 && type[1] == ':' ) {
 				for( i = 2; i < length && type[i] != ';'; i++ )
 					;
-				memset( target_class, 0, length );
+				target_class[0]='\0';
 				strncpy( target_class, type + 2, (i - 2) );
+				target_class[i-2] = '\0';
 				subtype->data._class = ferite_find_namespace_element_contents( script, script->mainns, target_class, FENS_CLS );
 				if( ferite_show_partial_implementation ) {
 					fprintf( stderr, "Trying to find object %s (%p)\n", target_class, subtype->data._class);
@@ -1308,8 +1309,9 @@ FeriteVariableSubType *ferite_subtype_link( FeriteScript *script, char *type ) {
 			if( length > 1 && type[1] == ':' ) {
 				for( i = 2; i < length && type[i] != ';'; i++ )
 					;
-				memset( target_class, 0, length );
+				target_class[0] = '\0';
 				strncpy( target_class, type + 2, (i - 2) );
+				target_class[i-2] = '\0';
 				subtype->data._class = ferite_find_namespace_element_contents( script, script->mainns, target_class, FENS_CLS );
 				if( ferite_show_partial_implementation ) {
 					fprintf( stderr, "Trying to find class %s (%p)\n", target_class, subtype->data._class);
@@ -1326,8 +1328,9 @@ FeriteVariableSubType *ferite_subtype_link( FeriteScript *script, char *type ) {
 			if( length > 1 && type[1] == ':' ) {
 				for( i = 2; i < length && type[i] != ';'; i++ )
 					;
-				memset( target_class, 0, length );
+				target_class[0] = '\0';
 				strncpy( target_class, type + 2, (i - 2) );
+				target_class[i-2] = '\0';
 				subtype->data._namespace = ferite_find_namespace_element_contents( script, script->mainns, target_class, FENS_NS );
 				if( ferite_show_partial_implementation ) {
 					fprintf( stderr, "Trying to find namespace %s (%p)\n", target_class, subtype->data._namespace);

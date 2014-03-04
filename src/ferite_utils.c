@@ -59,7 +59,7 @@ char *ferite_lowercase( char *str )
     if( str )
     {
         tmpstr = fmalloc_ngc( strlen(str)+1 );
-        memset( tmpstr, '\0', strlen(str)+1 );
+        tmpstr[0] = '\0';
         for( i = 0; i < strlen(str); i++ )
         {
             if( str[i] == '\"' )
@@ -74,6 +74,7 @@ char *ferite_lowercase( char *str )
             else
               tmpstr[strt++] = str[i];
         }
+        tmpstr[strt] = '\0';
         strcpy( str, tmpstr );
         ffree_ngc(tmpstr);
         FE_LEAVE_FUNCTION( str );
@@ -100,7 +101,7 @@ char *ferite_strip_whitespace( char *str )
     if( str )
     {
         tmpstr = fmalloc_ngc( strlen(str)+1 );
-        memset( tmpstr, '\0', strlen(str)+1 );
+        tmpstr[0] = '\0';
         for( i = 0; i < strlen(str); i++ )
         {
             if( str[i] == '\"' )
@@ -108,6 +109,7 @@ char *ferite_strip_whitespace( char *str )
             if( in_quote || ! isspace(*(str+i)) )
               tmpstr[strt++] = str[i];
         }
+        tmpstr[strt] = '\0';
         strcpy( str, tmpstr );
         ffree_ngc(tmpstr);
         FE_LEAVE_FUNCTION( str );

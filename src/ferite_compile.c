@@ -274,7 +274,7 @@ char *ferite_compiler_build_current_path_wannotation_wfunction( int annotate, in
 	int i;
 	
 	FE_ENTER_FUNCTION;
-	memset(currentPathNameBuffer, '\0', 4096);
+	currentPathNameBuffer[0] = '\0';
 	for( i = 1; i <= ferite_compile_stack->stack_ptr; i++ )
 	{
 		c = ferite_compile_stack->stack[i];
@@ -1004,7 +1004,7 @@ char *ferite_signature_to_string( FeriteScript *script, FeriteFunction *func )
 	static char parameters_buffer[1024];
 	int i = 0;
 	
-	memset( parameters_buffer, '\0', 1024 );
+	parameters_buffer[0] = '\0';
 	for( i = 0; i < func->arg_count; i++ )
 	{
 		FeriteParameterRecord *record = func->signature[i];

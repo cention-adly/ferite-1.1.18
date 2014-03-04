@@ -319,7 +319,7 @@ char *ferite_parameters_to_string( FeriteScript *script, FeriteVariable **param_
 	static char buffer[1024];
 	int i = 0;
 	
-	memset( buffer, '\0', 1024 );
+	buffer[0] = '\0';
 	while( param_list[i] != NULL )
 	{
 		strcat( buffer, ferite_variable_id_to_str( script, F_VAR_TYPE(param_list[i]) ) );
@@ -350,7 +350,8 @@ INLINE_OP( ferite_exec_funcall )
 #ifdef DEBUG
 	ferite_execute_call_depth++;
 #endif
-	memset(param_list, 0, sizeof(FeriteVariable*) * FE_FUNCTION_PARAMETER_MAX_SIZE);
+	// memset(param_list, 0, sizeof(FeriteVariable*) * FE_FUNCTION_PARAMETER_MAX_SIZE);
+	param_list[0] = NULL;
 	_arg_count = current_op->opdataf->argument_count;
 	exec->stack->stack_ptr -= _arg_count;
 	for( i = exec->stack->stack_ptr + 1, j = 0; j < _arg_count; i++, j++ ) {
@@ -1577,7 +1578,8 @@ FeriteVariable **ferite_create_parameter_list_from_data( FeriteScript *script, c
 	int			  i = 0;
 
 	retval = fmalloc( sizeof( FeriteVariable * ) * (strlen(format) + 3) );
-	memset( retval, '\0', sizeof( FeriteVariable * ) * (strlen(format) + 3) );
+	// memset( retval, '\0', sizeof( FeriteVariable * ) * (strlen(format) + 3) );
+	retval[0] = NULL;
 
 	va_start( ap, format );
 	for( i = 0; i < (signed)strlen(format); i++ )
@@ -1610,6 +1612,7 @@ FeriteVariable **ferite_create_parameter_list_from_data( FeriteScript *script, c
 		MARK_VARIABLE_AS_DISPOSABLE( var );
 		retval[i] = var;
 	}
+	retval[i] = NULL;
 	va_end( ap );
 	return retval;
 }

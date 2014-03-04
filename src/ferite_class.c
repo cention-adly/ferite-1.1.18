@@ -1078,7 +1078,7 @@ char *ferite_generate_namespace_fqn( FeriteScript *script, FeriteNamespace *ns )
 	if( ns->name == NULL )
 	{
 		name = fmalloc( 1024 );
-		memset( name, '\0', 1024 );
+		name[0] = '\0';
 	}
 	else
 	{

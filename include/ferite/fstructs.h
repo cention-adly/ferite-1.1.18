@@ -70,6 +70,8 @@ typedef struct _ferite_compile_record              FeriteCompileRecord;
 typedef struct _ferite_bk_req                      FeriteBkRequest;
 typedef struct _ferite_variable_accessors          FeriteVariableAccessors;
 typedef struct _ferite_variable_subtype            FeriteVariableSubType;
+typedef struct _ferite_profile_line_entry          FeriteProfileLineEntry;
+typedef struct _ferite_profile_entry               FeriteProfileEntry;
 
 typedef void (*FeriteVariableGetAccessor)(FeriteScript*,FeriteVariable*);
 typedef void (*FeriteVariableSetAccessor)(FeriteScript*,FeriteVariable*,FeriteVariable*);
@@ -516,6 +518,22 @@ struct _ferite_compile_record /* Used in the compiler */
 	FeriteVariable     *last_script_return;
 	int in_closure;
 	int want_container_finish;
+};
+
+struct _ferite_profile_line_entry {
+	unsigned int ncalls;
+	struct timespec total_duration;
+	FeriteStack *stack;
+};
+
+struct _ferite_profile_entry {
+	char *filename;
+	int is_file;
+	unsigned int filename_len;
+	size_t line_count;
+	FeriteProfileLineEntry *lines; /* 1-based indexing */
+
+	FeriteProfileEntry *next; // next in hash table
 };
 
 #endif /* __FERITE_STRUCTS_H__ */

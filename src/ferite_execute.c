@@ -1378,6 +1378,9 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 	FeriteVariable *return_val = NULL;
 	FeriteOpcodeContext *context, stack_context;
 	int			 error_op_location = 0, error_array[ERROR_UPPER_BOUND + 1];
+	// FIXME use script->current_op_file instead of profile_filename
+	// (after fixing multithread problem)
+	char profile_filename[PATH_MAX];
 	/*}}}*/
 
 	FE_ENTER_FUNCTION;
@@ -1392,17 +1395,23 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 	context->current_op_loc++;
 
 	script->current_op_file = function->bytecode->filename;
+	strcpy(profile_filename, script->current_op_file);
 
 	FUD(("EXECUTION STARTING\n"));
 	while( context->keep_function_running && script->keep_execution )
 	{
+		int profile_current_line = current_op->line;
+
 		FUD(("[%p] ", current_op ));
 		exec->line = current_op->line;
 		script->current_op_line = current_op->line;
 		exec->block_depth = current_op->block_depth;
 
-		if( ferite_opcode_table[current_op->OP_TYPE].op != NULL )
+		FERITE_PROFILE_BEGIN(profile_filename, profile_current_line);
+
+		if( ferite_opcode_table[current_op->OP_TYPE].op != NULL ) {
 			return_val = CALL_INLINE_OP((ferite_opcode_table[current_op->OP_TYPE].op));
+		}
 		else 
 		{		
 			switch( current_op->OP_TYPE )
@@ -1431,6 +1440,7 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 						}
 					}
 					break;
+					/*}}}*/
 				}
 				case F_OP_NOP:
 					break;
@@ -1471,6 +1481,9 @@ FeriteVariable *ferite_script_real_function_execute( FeriteScript *script, void 
 				ferite_reset_errors( script );
 			}
 		}
+		/*}}}*/
+
+		FERITE_PROFILE_END(profile_filename, profile_current_line);
 		
 		if( !context->keep_function_running || !script->keep_execution )
 			break;

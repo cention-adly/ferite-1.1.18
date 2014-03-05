@@ -472,7 +472,7 @@ int main( int argc, char **argv )
                     ferite_script_execute( script );
 
                     if (ferite_profile_enabled)
-                        ferite_profile_save(getpid());
+                        ferite_profile_save(0);
 
                     /* check to see if there is a runtime error */
                     if( ferite_has_runtime_error( script ) )

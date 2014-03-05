@@ -354,7 +354,7 @@ static int format_profile_filename(char *format, char *buf, pid_t pid)
 		return 0;
 	}
 
-	if (append_pid(buf, pid) == 0)
+	if (pid != 0 && append_pid(buf, pid) == 0)
 		return 0;
 
 	return 1;

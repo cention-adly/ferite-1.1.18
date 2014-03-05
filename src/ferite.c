@@ -204,7 +204,7 @@ int ferite_init( int argc, char **argv )
 		}
 
 		if (profile_filename_pattern != NULL) {
-		   ferite_profile_output(profile_filename_pattern);
+		   ferite_profile_set_filename_format(profile_filename_pattern);
 		   ferite_profile_toggle(FE_TRUE);
 		}
 

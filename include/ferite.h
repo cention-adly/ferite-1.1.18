@@ -64,14 +64,13 @@ FERITE_API FeriteScript *ferite_new_script();
 FERITE_API int           ferite_script_load( FeriteScript *script, char *filename );
 FERITE_API int           ferite_script_load_from_stream( FeriteScript *script, FILE *file );
 FERITE_API int           ferite_cache_toggle( int state );
-FERITE_API int           ferite_profile_toggle( int state );
 FERITE_API FeriteScript *ferite_script_compile( char *filename );
 FERITE_API FeriteScript *ferite_script_compile_with_path( char *filename, char **paths );
 FERITE_API int           ferite_script_execute( FeriteScript *script );
 FERITE_API FeriteScript *ferite_duplicate_script( FeriteScript *script );
 FERITE_API int           ferite_script_delete( FeriteScript *script );
 FERITE_API void          ferite_show_help();
-   
+
 #define ferite_register_class( script, ns, name ) ferite_register_inherited_class( script, ns, name, NULL )
 FERITE_API FeriteClass *ferite_register_inherited_class( FeriteScript *script, FeriteNamespace *ns, char *name, char *parent );
 FERITE_API int ferite_register_class_function( FeriteScript *script, FeriteClass *classptr, FeriteFunction *f, int is_static );
@@ -83,6 +82,12 @@ FERITE_API int ferite_get_parameter_count( FeriteVariable **list );
 FERITE_API void *ferite_get_parameter( FeriteVariable **list, int num );
 FERITE_API int ferite_get_required_parameter_list_size( FeriteScript *script, FeriteFunction *function );
    
+FERITE_API void ferite_profile_toggle( int state );
+FERITE_API void ferite_profile_begin(const char *filename, const size_t line);
+FERITE_API void ferite_profile_end(const char *filename, const size_t line);
+FERITE_API void ferite_profile_save(const pid_t pid);
+FERITE_API void ferite_profile_set_filename_format(const char *filename);
+
    /* macros to cover internal functions */
 #define fe_new_lng( name, val )             ferite_create_number_long_variable( script, name, val, FE_ALLOC )
 #define fe_new_lng_static( name, val )    ferite_create_number_long_variable( script, name, val, FE_STATIC )

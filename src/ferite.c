@@ -204,7 +204,7 @@ int ferite_init( int argc, char **argv )
 		}
 
 		if (profile_filename_pattern != NULL) {
-		   ferite_profile_output(profile_filename_pattern, getpid());
+		   ferite_profile_output(profile_filename_pattern);
 		   ferite_profile_toggle(FE_TRUE);
 		}
 
@@ -235,7 +235,6 @@ int ferite_deinit()
 		ferite_memory_deinit();
 		ferite_deinit_regex();
 		ferite_deinit_compiler();
-		FERITE_PROFILE_SAVE();
 		ferite_is_initialised = 0;
 	}
 	FE_LEAVE_FUNCTION( !ferite_is_initialised );

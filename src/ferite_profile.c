@@ -29,7 +29,7 @@ AphexMutex *profile_mutex = NULL;
 #define FERITE_PROFILE_NHASH 8192
 #define FERITE_PROFILE_STACK_SIZE 5
 int ferite_profile_enabled = FE_FALSE;
-static char *profile_output = "ferite.profile";
+static char profile_output[PATH_MAX] = { 0 };
 static FeriteProfileEntry *profile_entries[FERITE_PROFILE_NHASH] = { NULL };
 
 static unsigned int hash(char *key)
@@ -321,7 +321,29 @@ void ferite_profile_end(char *filename, size_t line)
 	unlock(profile_mutex);
 }
 
-static int format_profile_filename(char *format, char *buf)
+static int append_pid(char *buf, pid_t pid)
+{
+	unsigned int len;
+	unsigned int pid_width;
+	char pid_str[10];
+
+	pid_width = number_width(pid);
+	if (pid_width > 8) {
+		fprintf(stderr, "FIXME: pid too large? %d (%s:%d)\n", pid, __FILE__, __LINE__);
+		return 0;
+	}
+	snprintf(pid_str, 10, ".%d", pid);
+
+	len = strlen(buf) + pid_width + 1;
+	if (len > PATH_MAX - 1) {
+		fprintf(stderr, "Error: profile output '%s.{pid} would exceed PATH_MAX\n", profile_output);
+		return 0;
+	}
+	strncat(buf, pid_str, 10);
+	return 1;
+}
+
+static int format_profile_filename(char *format, char *buf, pid_t pid)
 {
 	struct tm now;
 	time_t t;
@@ -329,7 +351,15 @@ static int format_profile_filename(char *format, char *buf)
 	(void)time(&t);
 	(void)localtime_r(&t, &now);
 
-	return strftime(buf, PATH_MAX, format, &now) != 0;
+	if (strftime(buf, PATH_MAX, format, &now) == 0) {
+		fprintf(stderr, "Error: profile output pattern '%s' results in empty filename\n", profile_output);
+		return 0;
+	}
+
+	if (append_pid(buf, pid) == 0)
+		return 0;
+
+	return 1;
 }
 
 void write_profile_line_entries(FILE *f, FeriteProfileEntry *pe) {
@@ -366,7 +396,7 @@ void write_profile_line_entries(FILE *f, FeriteProfileEntry *pe) {
 	}
 }
 
-void ferite_profile_save()
+void ferite_profile_save(pid_t pid)
 {
 	int i;
 	FILE *f;
@@ -374,9 +404,7 @@ void ferite_profile_save()
 
 	getlock(profile_mutex);
 
-	if (!format_profile_filename(profile_output, filename)) {
-		fprintf(stderr, "Error: profile output '%s' results in empty filename\n", profile_output);
-
+	if (format_profile_filename(profile_output, filename, pid) == 0) {
 		return;
 	}
 	fprintf(stderr, "saving profiling to %s\n", filename);
@@ -401,12 +429,9 @@ void ferite_profile_save()
 		perror(filename);
 }
 
-void ferite_profile_output(char *filename, pid_t pid) {
-	int len = strlen(filename) + number_width(pid) + 2;
-
-	profile_output = malloc(len);
-	if (profile_output == NULL) {
-		DIE("OOM");
-	}
-	snprintf(profile_output, len, "%s.%d", filename, pid);
+void ferite_profile_output(char *filename) {
+	strncpy(profile_output, filename, PATH_MAX);
+	profile_output[PATH_MAX-1] = '\0';
+	fprintf(stderr, "Info: Setting ferite profile pattern to [%s]\n",
+			profile_output);
 }

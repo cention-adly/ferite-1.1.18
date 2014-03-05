@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "ferite.h"
 #include "aphex.h"
+#include <libgen.h>
 #include <errno.h>
 
 AphexMutex *profile_mutex = NULL;
@@ -32,13 +33,12 @@ int ferite_profile_enabled = FE_FALSE;
 static char profile_output[PATH_MAX] = { 0 };
 static FeriteProfileEntry *profile_entries[FERITE_PROFILE_NHASH] = { NULL };
 
-static unsigned int hash(char *key)
+static unsigned int hash(const char *key)
 {
-	char *p = key;
 	unsigned int hash = 0;
-	while (*p) {
-		hash = *p + 31 * hash;
-		p++;
+	while (*key) {
+		hash = *key + 31 * hash;
+		key++;
 	}
 	return hash % FERITE_PROFILE_NHASH;
 }
@@ -55,7 +55,7 @@ static int number_width(unsigned int num)
 	return width;
 }
 
-static int get_line_count(char *filename, size_t *count)
+static int get_line_count(const char *filename, size_t *count)
 {
 	FILE *f = fopen(filename, "r");
 	int ch;
@@ -80,7 +80,7 @@ static int get_line_count(char *filename, size_t *count)
 static int file_exists(const char *filename)
 {
 	struct stat st;
-	int r = stat(filename, &st);
+	const int r = stat(filename, &st);
 	if (r == 0)
 		return 1;
 	if (errno == ENOENT)
@@ -91,7 +91,7 @@ static int file_exists(const char *filename)
 	return 0;
 }
 
-static int profile_line_entry_init_for_eval(FeriteProfileEntry *pe)
+static int profile_line_entry_init_for_eval(FeriteProfileEntry * const pe)
 {
 	pe->is_file = 0;
 	pe->lines = fcalloc_ngc(sizeof(FeriteProfileLineEntry), PROFILE_LINES + 1);
@@ -99,7 +99,7 @@ static int profile_line_entry_init_for_eval(FeriteProfileEntry *pe)
 
 	return 0;
 }
-static int profile_line_entry_init_for_file(FeriteProfileEntry *pe)
+static int profile_line_entry_init_for_file(FeriteProfileEntry * const pe)
 {
 	size_t line_count;
 
@@ -128,12 +128,12 @@ static int profile_line_entry_init(FeriteProfileEntry *pe)
 	return 0;
 }
 
-static FeriteProfileEntry *profile_init(char *filename)
+static FeriteProfileEntry *profile_init(const char *filename)
 {
 	FeriteProfileEntry *pe;
 
 	pe = fmalloc_ngc(sizeof(FeriteProfileEntry));
-	pe->filename = ferite_strdup(filename, __FILE__, __LINE__);
+	pe->filename = ferite_strdup((char *)filename, __FILE__, __LINE__);
 	if (profile_line_entry_init(pe)) {
 		return NULL;
 	}
@@ -143,12 +143,12 @@ static FeriteProfileEntry *profile_init(char *filename)
 	return pe;
 }
 
-static int is_profile_for(char *filename, FeriteProfileEntry *pe)
+static int is_profile_for(const char *filename, const FeriteProfileEntry *pe)
 {
 	return strcmp(pe->filename, filename) == 0;
 }
 
-static FeriteProfileEntry *find_in_linked_list(char *filename, FeriteProfileEntry *pe)
+static FeriteProfileEntry *find_in_linked_list(const char *filename, FeriteProfileEntry *pe)
 {
 	while (pe) {
 		if (is_profile_for(filename, pe))
@@ -158,17 +158,17 @@ static FeriteProfileEntry *find_in_linked_list(char *filename, FeriteProfileEntr
 	return NULL;
 }
 
-static FeriteProfileEntry *hash_get(char *filename)
+static FeriteProfileEntry *hash_get(const char *filename)
 {
-	unsigned int idx = hash(filename);
+	unsigned int idx = hash(basename((char *)filename));
 
 	return find_in_linked_list(filename, profile_entries[idx]);
 }
 
-static FeriteProfileEntry *hash_get_or_create(char *filename)
+static FeriteProfileEntry *hash_get_or_create(const char *filename)
 {
 	FeriteProfileEntry *p = NULL;
-	unsigned int idx = hash(filename);
+	unsigned int idx = hash(basename((char *)filename));
 	FeriteProfileEntry *pe = profile_entries[idx];
 
 	if (pe) {
@@ -184,7 +184,7 @@ static FeriteProfileEntry *hash_get_or_create(char *filename)
 	return p;
 }
 
-int ferite_profile_toggle(int state)
+int ferite_profile_toggle(const int state)
 {
 	if (profile_mutex == NULL)
 		initlock(profile_mutex);
@@ -205,7 +205,7 @@ static struct timespec *create_timestamp()
 	return t;
 }
 
-static struct timespec timespec_diff(struct timespec *old, struct timespec *new)
+static struct timespec timespec_diff(const struct timespec *old, struct timespec *new)
 {
 	struct timespec d;
 	if (new->tv_nsec < old->tv_nsec) {
@@ -217,7 +217,7 @@ static struct timespec timespec_diff(struct timespec *old, struct timespec *new)
 	return d;
 }
 
-static void timespec_add(struct timespec *t, struct timespec delta)
+static void timespec_add(struct timespec *t, const struct timespec delta)
 {
 	t->tv_nsec += delta.tv_nsec;
 	if (t->tv_nsec > ONE_BILLION) {
@@ -227,14 +227,12 @@ static void timespec_add(struct timespec *t, struct timespec delta)
 	t->tv_sec += delta.tv_sec;
 }
 
-void ferite_profile_begin(char *filename, size_t line)
+void ferite_profile_begin(const char *filename, const size_t line)
 {
 	FeriteProfileEntry *pe;
 	FeriteProfileLineEntry *le;
 
 	getlock(profile_mutex);
-	//fprintf(stderr, "> begin %s\n", filename);
-	//fflush(stderr);
 
 	pe = hash_get_or_create(filename);
 	if (pe == NULL) {
@@ -253,7 +251,7 @@ void ferite_profile_begin(char *filename, size_t line)
 	unlock(profile_mutex);
 }
 
-void ferite_profile_end(char *filename, size_t line)
+void ferite_profile_end(const char *filename, const size_t line)
 {
 	FeriteProfileEntry *pe;
 	FeriteProfileLineEntry *le;
@@ -396,7 +394,7 @@ void write_profile_line_entries(FILE *f, FeriteProfileEntry *pe) {
 	}
 }
 
-void ferite_profile_save(pid_t pid)
+void ferite_profile_save(const pid_t pid)
 {
 	int i;
 	FILE *f;
@@ -429,7 +427,7 @@ void ferite_profile_save(pid_t pid)
 		perror(filename);
 }
 
-void ferite_profile_output(char *filename) {
+void ferite_profile_output(const char *filename) {
 	strncpy(profile_output, filename, PATH_MAX);
 	profile_output[PATH_MAX-1] = '\0';
 	fprintf(stderr, "Info: Setting ferite profile pattern to [%s]\n",

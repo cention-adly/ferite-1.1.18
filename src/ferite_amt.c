@@ -363,6 +363,7 @@ void *_ferite_amt_set( FeriteScript *script, FeriteAMT *tree, unsigned long inde
 					/* We have to split this node */
 					FeriteAMTNode *old_node = baseItem;
 					int old_id = 0, new_id = 0;
+					int depth = 0;
 					while( AMT_APPLY_SHIFT(tree, old_node->u.value.id) == AMT_APPLY_SHIFT(tree, index) ) {
 						FeriteAMTNode *new_node = ferite_amt_create_tree_node( script,root );
 						AMT_SET( script, root, baseIndex, new_node );
@@ -370,6 +371,11 @@ void *_ferite_amt_set( FeriteScript *script, FeriteAMT *tree, unsigned long inde
 						root = baseItem->u.tree;
 						AMT_SHIFT_AND_CHECK( NULL );
 						baseIndex = AMT_APPLY_SHIFT(tree, index);
+						depth += 1;
+						if (depth > 10) {
+							fprintf(stderr, "hamt collision detected for keys '%s' and '%s'\n", old_node->u.value.key, optional_key);
+							exit(1);
+						}
 					}
 					// Old Node
 					old_id = AMT_APPLY_SHIFT(tree, old_node->u.value.id);

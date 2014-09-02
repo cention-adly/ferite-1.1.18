@@ -224,7 +224,7 @@ char *ferite_insert_string( char *str, char *istr, int pos )
  */
 char *ferite_replace_string( char *str, char *pattern, char *data )
 {
-    size_t i = 0, j = 0, start = 0, dlen = 0, plen = 0;
+    size_t i = 0, j = 0, start = 0, dlen = 0, plen = 0, rlen = 0, slen = 0;
     char *rstr = NULL, *tmpbuf = NULL;
 
     FE_ENTER_FUNCTION;
@@ -242,10 +242,12 @@ char *ferite_replace_string( char *str, char *pattern, char *data )
         }
 
         plen = strlen(pattern);
+        slen = strlen(str);
         if( !data[0] ) /* empty replacement -- string won't grow */
-			rstr = fcalloc_ngc( strlen( str ) + 1, sizeof(char) );
+            rlen = slen + 1;
         else /* none of the strings can have length zero now */
-            rstr = fcalloc_ngc( strlen( str ) * plen * strlen( data ) + 1, sizeof(char) );
+            rlen = slen * plen * strlen( data ) + 1;
+        rstr = fcalloc_ngc(rlen, sizeof(char));
         dlen = strlen(data);
         FUD(("replace_str: replace \"%s\" with \"%s\"\n", pattern, data ));
         // TODO replace ferite_find_string with strstr

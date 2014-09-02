@@ -9,3 +9,4 @@ TEST: ferite_amt-hash-gen.c
 TEST: ferite_amt-hash-set-and-get.c test_amt.c
 TEST: ferite_amt-hash-delete.c test_amt.c
 TEST: ferite_utils-replace-string.c
+TEST: ferite_utils-replace-string-perf.c

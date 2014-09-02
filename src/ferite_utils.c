@@ -224,7 +224,7 @@ char *ferite_insert_string( char *str, char *istr, int pos )
  */
 char *ferite_replace_string( char *str, char *pattern, char *data )
 {
-    size_t i = 0, start = 0;
+    size_t i = 0, j = 0, start = 0, dlen = 0, plen = 0;
     char *rstr = NULL, *tmpbuf = NULL;
 
     FE_ENTER_FUNCTION;
@@ -241,19 +241,26 @@ char *ferite_replace_string( char *str, char *pattern, char *data )
             FE_LEAVE_FUNCTION(  fstrdup(str) );
         }
 
+        plen = strlen(pattern);
         if( !data[0] ) /* empty replacement -- string won't grow */
 			rstr = fcalloc_ngc( strlen( str ) + 1, sizeof(char) );
         else /* none of the strings can have length zero now */
-			rstr = fcalloc_ngc( strlen( str ) * strlen( pattern ) * strlen( data ) + 1, sizeof(char) );
-		
+            rstr = fcalloc_ngc( strlen( str ) * plen * strlen( data ) + 1, sizeof(char) );
+        dlen = strlen(data);
         FUD(("replace_str: replace \"%s\" with \"%s\"\n", pattern, data ));
+        // TODO replace ferite_find_string with strstr
         while( ((i=ferite_find_string( str+start, pattern ))+1) )
         {
-            strncat( rstr, str+start, i );
-            strcat( rstr, data );
-            start = i + start + strlen(pattern);
+            // Copy the non-matching part, up until before the match
+            memcpy(rstr + j, str + start, i);
+            j += i;
+            // Copy the replacement
+            memcpy(rstr + j, data, dlen + 1);
+            j += dlen;
+            start = i + start + plen;
         }
-        strcat( rstr, str + start );
+        // Copy the remaining non-matching part including the null terminator
+        memcpy( rstr + j, str + start, strlen(str + start) + 1);
         tmpbuf = fstrdup( rstr );
         ffree_ngc( rstr );
         FE_LEAVE_FUNCTION( tmpbuf );

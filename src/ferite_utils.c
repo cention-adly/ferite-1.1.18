@@ -241,14 +241,29 @@ char *ferite_replace_string( char *str, char *pattern, char *data )
             FE_LEAVE_FUNCTION(  fstrdup(str) );
         }
 
+        dlen = strlen(data);
         plen = strlen(pattern);
         slen = strlen(str);
         if( !data[0] ) /* empty replacement -- string won't grow */
             rlen = slen + 1;
         else /* none of the strings can have length zero now */
-            rlen = slen * plen * strlen( data ) + 1;
+        {
+            char *p = str;
+            size_t nmatch = 0;
+            while( ((p = strstr(p, pattern)) != NULL) )
+            {
+                p += plen;
+                nmatch++;
+            }
+            if (dlen > plen) {
+                rlen = slen + nmatch * (dlen - plen) + 1;
+            } else if (plen > dlen) {
+                rlen = slen - nmatch * (plen - dlen) + 1;
+            } else {
+                rlen = slen + 1;
+            }
+        }
         rstr = fcalloc_ngc(rlen, sizeof(char));
-        dlen = strlen(data);
         FUD(("replace_str: replace \"%s\" with \"%s\"\n", pattern, data ));
         // TODO replace ferite_find_string with strstr
         while( ((i=ferite_find_string( str+start, pattern ))+1) )

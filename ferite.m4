@@ -57,7 +57,7 @@ dnl    done
 	            sed 's/\([[0-9]]*\).\([[0-9]]*\).\([[0-9]]*\).*/\3/'`
 		ferite_config_release_version=`$FERITE_CONFIG --version |
 		    sed -e 's/\([[0-9]]*\).\([[0-9]]*\).\([[0-9]]*\)//' \
-			-e 's/-//'`
+			-e 's/[[.-]]//'`
 
 		# Later we should do actual tests on the library
 		ferite_req_major_version=`echo $min_ferite_version | \
@@ -68,7 +68,7 @@ dnl    done
 	            sed 's/\([[0-9]]*\).\([[0-9]]*\).\([[0-9]]*\).*/\3/'`
 	        ferite_req_release_version=`echo $min_ferite_version | \
 		    sed -e 's/\([[0-9]]*\).\([[0-9]]*\).\([[0-9]]*\)//' \
-			-e 's/-//'`
+			-e 's/[[-.]]//'`
 
 		if test $ferite_req_major_version -lt $ferite_config_major_version; then
 	            have_ferite="yes"

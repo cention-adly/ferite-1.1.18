@@ -45,7 +45,7 @@ cleanup() {
 
 setup
 
-echo "1..12" # No. of tests we expect to run:
+echo "1..15" # No. of tests we expect to run:
 test_request_version "1.0.0"    metBy "1.0.0" Yay
 test_request_version "1.0.0"    metBy "0.0.1" Nay
 test_request_version "1.1.18"   metBy "1.1.18" Yay
@@ -58,5 +58,8 @@ test_request_version "1.1.18-1" metBy "1.1.18-20" Yay
 test_request_version "1.1.18"   metBy "1.1.18-20" Yay
 test_request_version "1.1.18"   metBy "1.2.0" Yay
 test_request_version "1.1.18-40"   metBy "1.1.18-40" Yay
+test_request_version "1.1.18.40"   metBy "1.1.18-40" Yay
+test_request_version "1.1.18-40"   metBy "1.1.18.40" Yay
+test_request_version "1.1.18.40"   metBy "1.1.18.40" Yay
 
 cleanup

@@ -87,6 +87,7 @@ FERITE_API int ferite_get_required_parameter_list_size( FeriteScript *script, Fe
 #define fe_new_lng_static( name, val )    ferite_create_number_long_variable( script, name, val, FE_STATIC )
 #define fe_new_dbl( name, val )             ferite_create_number_double_variable( script, name, val, FE_ALLOC )
 #define fe_new_dbl_static( name, val )    ferite_create_number_double_variable( script, name, val, FE_STATIC )
+#define fe_new_bin_str( name, val, len, encoding )  ferite_create_binary_string_variable_from_ptr( script, name, val, len, encoding, FE_ALLOC )
 #define fe_new_str( name, val, len, encoding )  ferite_create_string_variable_from_ptr( script, name, val, len, encoding, FE_ALLOC )
 #define fe_new_str_static( name, val, len, encoding ) ferite_create_string_variable_from_ptr( script, name, val, len, encoding, FE_STATIC )
 #define fe_new_obj( name )                  ferite_create_object_variable( script, name, FE_ALLOC )

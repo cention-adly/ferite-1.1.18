@@ -77,6 +77,32 @@ FeriteString *ferite_str_new( FeriteScript *script, char *str, size_t length, in
 }
 
 /**
+ * @function ferite_bin_str_new
+ * @declaration FeriteString *ferite_bin_str_new( char *str, int length, int encoding )
+ * @brief Create a new string with exisitng binary data
+ * @param FeriteScript *script The script context
+ * @param char *str The data to use
+ * @param int length The length of the data
+ * @param int encoding The encoding to use, if you are not sure use FE_CHARSET_DEFAULT
+ * @return A FeriteString containing the data
+ */
+FeriteString *ferite_bin_str_new( FeriteScript *script, char *str, size_t length, int encoding )
+{
+	FeriteString *ptr;
+	
+	FE_ENTER_FUNCTION;
+	ptr = fmalloc( sizeof( FeriteString ) );
+	ptr->pos = -1;
+	ptr->encoding = encoding;
+	
+	ptr->data = fmalloc( length + 1 );
+	memcpy( ptr->data, str, length );
+	
+	ptr->length = length;
+	FE_LEAVE_FUNCTION( ptr );
+}
+
+/**
  * @function ferite_str_dup
  * @declaration FeriteString *ferite_str_dup( FeriteString *str )
  * @brief Duplicate a ferite string

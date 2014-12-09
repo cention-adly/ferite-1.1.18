@@ -92,6 +92,7 @@ FERITE_API FeriteVariable     *ferite_get_variable_ref( FeriteScript *script, Fe
 
 FERITE_API FeriteVariable     *ferite_create_string_variable( FeriteScript *script, char *name, FeriteString *data, int alloc );
 FERITE_API FeriteVariable     *ferite_create_string_variable_from_ptr( FeriteScript *script, char *name, char *data, size_t length, int encoding, int alloc );
+FERITE_API FeriteVariable     *ferite_create_binary_string_variable_from_ptr( FeriteScript *script, char *name, char *data, size_t length, int encoding, int alloc );
 FERITE_API FeriteVariable     *ferite_create_boolean_variable( FeriteScript *script, char *name, long data, int alloc );
 FERITE_API FeriteVariable     *ferite_create_number_long_variable( FeriteScript *script, char *name, long data, int alloc );
 FERITE_API FeriteVariable     *ferite_create_number_double_variable( FeriteScript *script, char *name, double data, int alloc );

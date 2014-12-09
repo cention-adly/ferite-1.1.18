@@ -319,6 +319,30 @@ FeriteVariable *ferite_create_string_variable_from_ptr( FeriteScript *script, ch
 }
 
 /**
+ * @function ferite_create_binary_string_variable_from_ptr
+ * @declaration FeriteVariable *ferite_create_binary_string_variable_from_ptr( FeriteScript *script, char *name, char *data, int length, int encoding, int alloc )
+ * @brief Create a FeriteVariable and set it up to be a string from a pointer and length
+ * @param FeriteScript *script The script
+ * @param char *name The name of the variable
+ * @param char *data The data to set the default value of the variable to
+ * @param int length The amount of data that exists - required to be greater than 0 for binary data. For a null terminated string, 0 will cause ferite to work out the length of the data.
+ * @param int encoding The method that was used to encode the string, if you are unsure use FE_CHARSET_DEFAULT
+ * @param int alloc Whether or not to set the variable's name as static or allocated
+ * @return Returns a newly created string variable
+ */
+FeriteVariable *ferite_create_binary_string_variable_from_ptr( FeriteScript *script, char *name, char *data, size_t length, int encoding, int alloc )
+{
+	FeriteVariable *ptr;
+
+	FE_ENTER_FUNCTION;
+	ptr = ferite_variable_alloc( script, name, alloc );
+	F_VAR_TYPE(ptr) = F_VAR_STR;
+	VAS(ptr) = ferite_bin_str_new( script, data, length, encoding );
+	ptr->subtype = ferite_subtype_link( script, "S" );
+	FE_LEAVE_FUNCTION( ptr );
+}
+
+/**
  * @function ferite_create_number_long_variable
  * @declaration FeriteVariable *ferite_create_number_long_variable( FeriteScript *script, char *name, long data, int alloc )
  * @brief Create a FeriteVariable and set it up to be a number variable of type long

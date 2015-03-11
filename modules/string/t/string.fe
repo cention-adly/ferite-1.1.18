@@ -1,0 +1,154 @@
+uses "tap";
+uses "date";
+
+{
+	array tests = [
+		// Replace nothing
+		[
+		'text' => "Hello world",
+		'replace' => "",
+		'with' => "",
+		'want' => "Hello world"
+		],
+		// Shorten word
+		[
+		'text' => "Hello delete world",
+		'replace' => "delete",
+		'with' => "bear",
+		'want' => "Hello bear world"
+		],
+		[
+		'text' => "delete Hello world",
+		'replace' => "delete ",
+		'with' => "bear ",
+		'want' => "bear Hello world"
+		],
+		[
+		'text' => "Hello world delete",
+		'replace' => " delete",
+		'with' => " bear",
+		'want' => "Hello world bear"
+		],
+		// Expand word
+		[
+		'text' => "aba",
+		'replace' => "b",
+		'with' => "BBB",
+		'want' => "aBBBa"
+		],
+		[
+		'text' => "baa",
+		'replace' => "b",
+		'with' => "BBB",
+		'want' => "BBBaa"
+		],
+		[
+		'text' => "aab",
+		'replace' => "b",
+		'with' => "BBB",
+		'want' => "aaBBB"
+		],
+		// Delete word
+		[
+		'text' => "Hello delete world",
+		'replace' => "delete ",
+		'with' => "",
+		'want' => "Hello world"
+		],
+		[
+		'text' => "delete Hello world",
+		'replace' => "delete ",
+		'with' => "",
+		'want' => "Hello world"
+		],
+		[
+		'text' => "Hello world delete",
+		'replace' => " delete",
+		'with' => "",
+		'want' => "Hello world"
+		],
+		// Delete single-letter word
+		[
+		'text' => "Hello Xworld",
+		'replace' => "X",
+		'with' => "",
+		'want' => "Hello world"
+		],
+		[
+		'text' => "XHello world",
+		'replace' => "X",
+		'with' => "",
+		'want' => "Hello world"
+		],
+		[
+		'text' => "Hello worldX",
+		'replace' => "X",
+		'with' => "",
+		'want' => "Hello world"
+		],
+		// Expand single-letter word
+		[
+		'text' => "Hello Xworld",
+		'replace' => "X",
+		'with' => "big ",
+		'want' => "Hello big world"
+		],
+		[
+		'text' => "XHello world",
+		'replace' => "X",
+		'with' => "Big ",
+		'want' => "Big Hello world"
+		],
+		[
+		'text' => "Hello world bye",
+		'replace' => "X",
+		'with' => " bye",
+		'want' => "Hello world bye"
+		],
+		// Delete string
+		[
+		'text' => "deletedeletedelete",
+		'replace' => "delete",
+		'with' => "",
+		'want' => ""
+		]
+	];
+
+	for (number i = 0; i < tests.size(); i++) {
+		array t = tests[i];
+		string text = t['text'];
+		string pattern = t['replace'];
+		string with = t['with'];
+		string want = t['want'];
+		string got = text.replace(pattern, with);
+		is (got, want, "[$i] '$text'.replace('$pattern', '$with') => '$got'");
+	}
+}
+
+{
+	number NCHUNKS = 99000;
+	string a, want;
+	string gotNew, gotOld;
+	number len = 1024*64;
+	number s, e, durationOld, durationNew, ratio;
+	string aSeed, wantSeed;
+	array aArray, wantArray;
+	aSeed = "AaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa";
+	wantSeed = "BBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBaBBa";
+	for (number i = 0; i < NCHUNKS; i++) {
+		aArray[] = aSeed;
+		wantArray[] = wantSeed;
+	}
+	a = aArray.join("\n");
+	want = wantArray.join("\n");
+	diag("Len a " + a.length());
+	diag("Len w " + want.length());
+
+	s = Date.now();
+	gotNew = a.replace("A", "BB");
+	durationNew = Date.now() - s;
+	is (gotNew, want, "String.replaceAll() works");
+	diag("New String.replace() took ${durationNew}s");
+}
+
+done_testing();

@@ -224,8 +224,8 @@ char *ferite_insert_string( char *str, char *istr, int pos )
  */
 char *ferite_replace_string( char *str, char *pattern, char *data )
 {
-    size_t i = 0, start = 0;
-    char *rstr = NULL, *tmpbuf = NULL;
+    size_t j = 0, start = 0, dlen = 0, plen = 0, rlen = 0, slen = 0;
+    char *rstr = NULL, *tmpbuf = NULL, *p = NULL;
 
     FE_ENTER_FUNCTION;
     if( str && pattern && data )
@@ -241,19 +241,43 @@ char *ferite_replace_string( char *str, char *pattern, char *data )
             FE_LEAVE_FUNCTION(  fstrdup(str) );
         }
 
+        dlen = strlen(data);
+        plen = strlen(pattern);
+        slen = strlen(str);
         if( !data[0] ) /* empty replacement -- string won't grow */
-			rstr = fcalloc_ngc( strlen( str ) + 1, sizeof(char) );
+            rlen = slen + 1;
         else /* none of the strings can have length zero now */
-			rstr = fcalloc_ngc( strlen( str ) * strlen( pattern ) * strlen( data ) + 1, sizeof(char) );
-		
-        FUD(("replace_str: replace \"%s\" with \"%s\"\n", pattern, data ));
-        while( ((i=ferite_find_string( str+start, pattern ))+1) )
         {
-            strncat( rstr, str+start, i );
-            strcat( rstr, data );
-            start = i + start + strlen(pattern);
+            p = str;
+            size_t nmatch = 0;
+            while( ((p = strstr(p, pattern)) != NULL) )
+            {
+                p += plen;
+                nmatch++;
+            }
+            if (dlen > plen) {
+                rlen = slen + nmatch * (dlen - plen) + 1;
+            } else if (plen > dlen) {
+                rlen = slen - nmatch * (plen - dlen) + 1;
+            } else {
+                rlen = slen + 1;
+            }
         }
-        strcat( rstr, str + start );
+        rstr = fcalloc_ngc(rlen, sizeof(char));
+        FUD(("replace_str: replace \"%s\" with \"%s\"\n", pattern, data ));
+        while(p = strstr( str+start, pattern ))
+        {
+            int len = p - (str+start);
+            // Copy the non-matching part, up until before the match
+            memcpy(rstr + j, str + start, len);
+            j += len;
+            // Copy the replacement
+            memcpy(rstr + j, data, dlen + 1);
+            j += dlen;
+            start = len + start + plen;
+        }
+        // Copy the remaining non-matching part including the null terminator
+        memcpy( rstr + j, str + start, strlen(str + start) + 1);
         tmpbuf = fstrdup( rstr );
         ffree_ngc( rstr );
         FE_LEAVE_FUNCTION( tmpbuf );

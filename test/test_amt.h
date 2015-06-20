@@ -25,6 +25,8 @@ FeriteAMT *testHashPutAndGet(char *desc, struct HashTest *tests,  size_t ntests)
 FeriteAMT *testCustomHashPutAndGet(char *desc, struct CustomHashTest *tests,  size_t ntests);
 FeriteAMT *testCustomHashPut(FeriteAMT *amt, char *desc, struct CustomHashTest *tests,  size_t ntests);
 void testCustomHashGet(FeriteAMT *amt, char *desc, struct CustomHashTest *tests,  size_t ntests);
+void *ferite_hamt_get( FeriteScript *script, FeriteAMT *tree, char *key );
+FeriteAMTNode *_ferite_hamt_get_with_key( FeriteScript *script, FeriteAMT *tree, unsigned long index, char *key );
 
 
 #endif

@@ -50,6 +50,7 @@ FERITE_API FeriteString *ferite_str_replace( FeriteScript *script, FeriteString 
 FERITE_API FeriteString *ferite_str_dup( FeriteScript *script, FeriteString *str );
 FERITE_API int           ferite_str_data_cat( FeriteScript *script, FeriteString *str, void *data, size_t size );
 FERITE_API FeriteString *ferite_str_escape( FeriteScript *script, FeriteString *str );
+FeriteString *ferite_bin_str_new( FeriteScript *script, char *str, size_t length, int encoding );
 
 #define FE_CHARSET_DEFAULT 0
 #define FE_CHARSET_UTF8    1

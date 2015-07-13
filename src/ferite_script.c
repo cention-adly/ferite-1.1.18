@@ -233,6 +233,10 @@ int ferite_script_clean( FeriteScript *script )
             }        
 #endif
         }
+
+#ifdef HAVE_LIBGC
+        GC_gcollect();
+#endif
 		/* delete the include list */
         if( script->include_list != NULL )
         {
